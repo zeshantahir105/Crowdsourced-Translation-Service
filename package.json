@@ -1,0 +1,10 @@
+{
+  "name": "lingohub-ai",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm run dev --prefix backend",
+    "dev:web": "npm run dev --prefix frontend",
+    "dev:ai": "cd ai-service && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "db:push": "npm run db:push --prefix backend"
+  }
+}

@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --color-lh-blue: #0b4f8c;
+  --color-lh-blue-hover: #083a68;
+  --color-lh-surface: #f7f8fa;
+  --color-lh-border: #e8eaed;
+  --color-lh-ink: #1a1d21;
+  --color-lh-muted: #5f6368;
+  /* DeepL-style marketing accents (from clone / illustration palette) */
+  --color-lh-navy: #0f2b46;
+  --color-lh-navy-deep: #042b48;
+  --color-lh-cyan: #00b2e3;
+  --color-lh-cyan-soft: #e6f7fc;
+  --color-lh-sidebar: #fafafa;
+}
+
+@keyframes lh-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes lh-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes lh-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -20px) scale(1.05);
+  }
+  66% {
+    transform: translate(-20px, 10px) scale(0.95);
+  }
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  background: var(--color-lh-sidebar);
+  color: var(--color-lh-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-animate-float,
+  .lh-blob,
+  .lh-blob-delay,
+  .lh-stat-shimmer {
+    animation: none !important;
+  }
+}
+
+.lh-animate-float {
+  animation: lh-float 5s ease-in-out infinite;
+}
+
+.lh-hero-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgb(0 178 227 / 0.18), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 85% 10%, rgb(11 79 140 / 0.14), transparent 45%),
+    radial-gradient(ellipse 60% 80% at 70% 90%, rgb(0 178 227 / 0.1), transparent 50%),
+    linear-gradient(180deg, #f0f9fc 0%, #ffffff 42%, #f8fafc 100%);
+}
+
+.lh-gradient-text {
+  background: linear-gradient(105deg, var(--color-lh-navy-deep) 0%, var(--color-lh-blue) 45%, var(--color-lh-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lh-stat-shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--color-lh-cyan-soft) 0%,
+    rgb(255 255 255 / 0.9) 40%,
+    var(--color-lh-cyan-soft) 80%
+  );
+  background-size: 200% 200%;
+  animation: lh-shimmer 8s ease infinite;
+}
+
+.lh-blob {
+  animation: lh-blob 18s ease-in-out infinite;
+}
+
+.lh-blob-delay {
+  animation: lh-blob 22s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* When the routed layout shell is mounted, lock the root to one viewport (no page-level scroll). */
+#root:has([data-app-shell]) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+/* Native selects: chevron inset from the right border (avoids cramped browser default) */
+.lh-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.125rem 1.125rem;
+  cursor: pointer;
+}
+
+.lh-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.lh-select-sm {
+  background-size: 1rem 1rem;
+  background-position: right 0.55rem center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* TipTap */
+.ProseMirror {
+  outline: none;
+  min-height: 200px;
+  line-height: 1.6;
+}
+.ProseMirror p {
+  margin: 0.35em 0;
+}

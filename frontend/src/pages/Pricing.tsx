@@ -1,0 +1,170 @@
+import { Link } from "react-router-dom";
+import { Check } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { api } from "../api";
+
+const freeFeatures = [
+  "Text translation with AI draft (character limits apply)",
+  "Crowdsourced workflow: draft → edit → review → approve",
+  "Glossary (personal)",
+  "Document upload: .txt only, smaller files",
+  "Developer API (limits follow your plan)",
+];
+
+const premiumFeatures = [
+  "Higher text & extraction limits",
+  "Documents: .txt, .docx, .pdf",
+  "Larger file uploads",
+  "Priority-style limits for teams (configurable via env)",
+  "Same workflow, reputation, and API — scaled up",
+];
+
+export function Pricing() {
+  const { user, isPremium, refreshMe } = useAuth();
+
+  async function checkout() {
+    if (!user) {
+      window.location.href = "/login?from=/pricing";
+      return;
+    }
+    try {
+      const r = await api<{ url: string }>("/billing/create-checkout-session", { method: "POST", json: {} });
+      if (r.url) window.location.href = r.url;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Checkout unavailable — configure Stripe in backend/.env");
+    }
+  }
+
+  async function openBillingPortal() {
+    if (!user) return;
+    try {
+      const r = await api<{ url: string }>("/billing/create-portal-session", { method: "POST", json: {} });
+      if (r.url) window.location.href = r.url;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Could not open billing portal");
+    }
+  }
+
+  return (
+    <div className="min-h-full bg-lh-surface px-4 py-10 md:px-8">
+      <div className="mx-auto max-w-[1000px]">
+        <h1 className="text-center text-3xl font-bold text-lh-ink">Plans</h1>
+        <p className="mx-auto mt-2 max-w-xl text-center text-sm text-lh-muted">
+          Free for individuals; Premium for document formats, volume, and production workloads — aligned with your PRD
+          subscription model.
+        </p>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl border border-lh-border bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-bold text-lh-ink">Free</h2>
+            <p className="mt-1 text-3xl font-bold text-lh-blue">$0</p>
+            <ul className="mt-6 space-y-3">
+              {freeFeatures.map((f) => (
+                <li key={f} className="flex gap-2 text-sm text-lh-ink">
+                  <Check className="size-5 shrink-0 text-green-600" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {!user && (
+              <Link
+                to="/register"
+                className="mt-8 block w-full rounded-lg border border-lh-border py-3 text-center text-sm font-semibold hover:bg-lh-surface"
+              >
+                Get started
+              </Link>
+            )}
+          </div>
+
+          <div className="rounded-2xl border-2 border-lh-blue bg-white p-8 shadow-md">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-lh-ink">Premium</h2>
+              {user && isPremium ? (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-900">
+                  Your plan
+                </span>
+              ) : (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">
+                  Recommended
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-3xl font-bold text-lh-blue">Stripe</p>
+            <p className="text-xs text-lh-muted">Price ID from your Stripe product</p>
+            {user && isPremium && (
+              <p className="mt-2 text-sm text-lh-ink">
+                You are subscribed to Premium.
+                {user.subscriptionExpiresAt && (
+                  <>
+                    {" "}
+                    Current period through{" "}
+                    <span className="font-semibold">
+                      {new Date(user.subscriptionExpiresAt).toLocaleDateString()}
+                    </span>
+                    .
+                  </>
+                )}
+              </p>
+            )}
+            <ul className="mt-6 space-y-3">
+              {premiumFeatures.map((f) => (
+                <li key={f} className="flex gap-2 text-sm text-lh-ink">
+                  <Check className="size-5 shrink-0 text-green-600" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {!user && (
+              <button
+                type="button"
+                onClick={() => (window.location.href = "/login?from=/pricing")}
+                className="mt-8 w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+              >
+                Log in to subscribe
+              </button>
+            )}
+            {user && !isPremium && (
+              <>
+                <button
+                  type="button"
+                  onClick={checkout}
+                  className="mt-8 w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                >
+                  Subscribe with Stripe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => refreshMe()}
+                  className="mt-2 w-full text-center text-xs text-lh-blue hover:underline"
+                >
+                  Refresh plan after checkout
+                </button>
+              </>
+            )}
+            {user && isPremium && (
+              <div className="mt-8 space-y-2">
+                <button
+                  type="button"
+                  onClick={openBillingPortal}
+                  className="w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                >
+                  Manage subscription
+                </button>
+                <p className="text-center text-xs text-lh-muted">
+                  Update payment method, view invoices, or cancel your plan in Stripe&apos;s billing portal.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refreshMe()}
+                  className="w-full text-center text-xs text-lh-blue hover:underline"
+                >
+                  Refresh plan status
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
