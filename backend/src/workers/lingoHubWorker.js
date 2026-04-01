@@ -38,6 +38,18 @@ const worker = new Worker(
       });
     } catch (e) {
       console.warn(`[worker] AI draft failed for ${requestId}:`, e.message);
+      const existing = row.aiDraft;
+      const keepExisting =
+        existing &&
+        !String(existing).startsWith("[AI unavailable]") &&
+        !String(existing).startsWith("[Preview unavailable]");
+      if (keepExisting) {
+        await publishLingoEvent(publisher, {
+          event: "translation:update",
+          data: { requestId, status: row.status },
+        });
+        return;
+      }
       aiDraft = `[AI unavailable] ${row.sourceText.slice(0, 200)}…`;
     }
 

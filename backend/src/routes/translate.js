@@ -7,6 +7,18 @@ import { maxTextChars } from "../services/planService.js";
 
 const router = Router();
 
+/** Use UI preview text when server-side draft is missing or a known failure placeholder. */
+function mergeClientNeuralDraft(serverDraft, clientDraft, cap) {
+  const c = typeof clientDraft === "string" ? clientDraft.trim().slice(0, cap) : "";
+  const isBad = (s) =>
+    s == null ||
+    s === "" ||
+    String(s).startsWith("[AI unavailable]") ||
+    String(s).startsWith("[Preview unavailable]");
+  if (!isBad(c) && isBad(serverDraft)) return c;
+  return serverDraft ?? null;
+}
+
 /** Instant neural draft (DeepL-style) without creating a workflow job */
 router.post("/preview", requireAuth, async (req, res) => {
   try {
@@ -43,7 +55,7 @@ router.post("/preview", requireAuth, async (req, res) => {
 
 router.post("/", requireAuth, async (req, res) => {
   try {
-    const { sourceText, sourceLang, targetLang, domain } = req.body;
+    const { sourceText, sourceLang, targetLang, domain, clientDraft } = req.body;
     if (!sourceText || !sourceLang || !targetLang) {
       return res.status(400).json({ error: "sourceText, sourceLang, targetLang required" });
     }
@@ -70,6 +82,8 @@ router.post("/", requireAuth, async (req, res) => {
         aiDraft = `[AI unavailable] ${sourceText.slice(0, 200)}…`;
       }
     }
+
+    aiDraft = mergeClientNeuralDraft(aiDraft, clientDraft, cap);
 
     const request = await prisma.translationRequest.create({
       data: {
@@ -108,9 +122,10 @@ router.post("/", requireAuth, async (req, res) => {
         } catch {
           fallback = `[AI unavailable] ${sourceText.slice(0, 200)}…`;
         }
+        const merged = mergeClientNeuralDraft(fallback, clientDraft, cap);
         await prisma.translationRequest.update({
           where: { id: request.id },
-          data: { aiDraft: fallback },
+          data: { aiDraft: merged },
         });
       }
     }

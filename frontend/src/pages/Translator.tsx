@@ -116,6 +116,8 @@ export function Translator() {
           sourceLang,
           targetLang,
           domain,
+          // Same neural output the user already saw in preview (backend may use it if server AI fails).
+          clientDraft: targetText.trim() || undefined,
         },
       });
       setMsg("Submitted to LingoHub workflow — check Dashboard & Tasks.");

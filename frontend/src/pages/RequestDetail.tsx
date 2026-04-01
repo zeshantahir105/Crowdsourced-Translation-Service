@@ -92,7 +92,9 @@ export function RequestDetail() {
 
   useEffect(() => {
     if (!editor || !data) return;
-    const raw = data.aiDraft || data.versions[0]?.text || "";
+    // Prefer latest human version over stored AI draft so a good submission isn't hidden
+    // behind a stale "[AI unavailable]…" placeholder saved at job creation time.
+    const raw = data.versions[0]?.text || data.aiDraft || "";
     if (!raw.trim()) {
       editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
       return;
