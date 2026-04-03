@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
 import { api } from "../api";
 
 type Entry = {
@@ -17,6 +18,8 @@ export function Glossary() {
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +41,7 @@ export function Glossary() {
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
     try {
       await api("/glossary", {
         method: "POST",
@@ -49,15 +53,20 @@ export function Glossary() {
       await load();
     } catch (er) {
       setErr(er instanceof Error ? er.message : "Add failed");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function remove(id: string) {
+    setDeletingId(id);
     try {
       await api(`/glossary/${id}`, { method: "DELETE" });
       await load();
     } catch (er) {
       setErr(er instanceof Error ? er.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -93,13 +102,15 @@ export function Glossary() {
             onChange={(e) => setContext(e.target.value)}
             className="w-full rounded-lg border border-lh-border px-3 py-2 text-sm"
           />
-          <button
+          <LoadingButton
             type="submit"
-            className="inline-flex items-center gap-2 rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+            loading={saving}
+            loadingLabel="Saving…"
+            className="rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >
             <Plus className="size-4" />
             Save term
-          </button>
+          </LoadingButton>
         </form>
 
         <div>
@@ -133,11 +144,16 @@ export function Glossary() {
               </div>
               <button
                 type="button"
+                disabled={deletingId !== null}
                 onClick={() => remove(en.id)}
-                className="rounded-lg p-2 text-lh-muted hover:bg-red-50 hover:text-red-600"
+                className="rounded-lg p-2 text-lh-muted hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                 aria-label="Delete"
               >
-                <Trash2 className="size-4" />
+                {deletingId === en.id ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
               </button>
             </li>
           ))}

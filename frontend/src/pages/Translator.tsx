@@ -292,8 +292,8 @@ export function Translator() {
                 disabled={!user || !sourceText.trim() || loading}
                 className="inline-flex items-center gap-2 rounded-lg bg-lh-surface px-3 py-2 text-sm font-semibold text-lh-blue hover:bg-lh-border/50 disabled:opacity-50"
               >
-                <Sparkles className="size-4" />
-                Refresh
+                {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {loading ? "Updating…" : "Refresh"}
               </button>
               <button
                 type="button"
@@ -302,7 +302,7 @@ export function Translator() {
                 className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-lh-blue to-lh-navy px-4 py-2 text-sm font-semibold text-white shadow-md shadow-lh-blue/20 transition hover:brightness-110 disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : <Users className="size-4" />}
-                Send to workflow
+                {submitting ? "Submitting…" : "Send to workflow"}
               </button>
             </div>
           </div>

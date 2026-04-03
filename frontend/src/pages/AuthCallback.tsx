@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { setToken } from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -33,8 +34,9 @@ export function AuthCallback() {
   }, [params, nav, refreshMe]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center text-lh-muted">
-      Completing sign-in…
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 text-lh-muted">
+      <Loader2 className="size-8 animate-spin text-lh-blue" aria-hidden />
+      <p className="text-sm font-medium">Completing sign-in…</p>
     </div>
   );
 }

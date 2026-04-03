@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { isApiError } from "../api";
+import { LoadingButton } from "../components/LoadingButton";
 import { useAuth, type SignupRole } from "../context/AuthContext";
 
 const apiBase = (import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
@@ -25,6 +26,8 @@ export function Login() {
   const [err, setErr] = useState("");
   const [sentHint, setSentHint] = useState(false);
   const [resending, setResending] = useState(false);
+  const [submittingPassword, setSubmittingPassword] = useState(false);
+  const [submittingOtp, setSubmittingOtp] = useState(false);
 
   if (user) {
     return <Navigate to={loc.state?.from || "/translator"} replace />;
@@ -36,6 +39,7 @@ export function Login() {
     e.preventDefault();
     setErr("");
     setSentHint(false);
+    setSubmittingPassword(true);
     try {
       const result = await login(email, password);
       if (result?.needsLoginOtp) {
@@ -50,17 +54,22 @@ export function Login() {
         return;
       }
       setErr(e2 instanceof Error ? e2.message : "Login failed");
+    } finally {
+      setSubmittingPassword(false);
     }
   }
 
   async function onOtpSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setSubmittingOtp(true);
     try {
       await verifyLoginOtp(email.trim(), loginCode.replace(/\s/g, ""));
       nav(dest, { replace: true });
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Invalid or expired code");
+    } finally {
+      setSubmittingOtp(false);
     }
   }
 
@@ -118,22 +127,26 @@ export function Login() {
               {sentHint && (
                 <p className="text-sm text-green-700">If your password is correct, a new code was sent.</p>
               )}
-              <button
+              <LoadingButton
                 type="submit"
-                className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                loading={submittingOtp}
+                loadingLabel="Verifying…"
+                className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
               >
                 Verify and sign in
-              </button>
+              </LoadingButton>
             </form>
 
-            <button
+            <LoadingButton
               type="button"
-              disabled={resending || !email.trim() || !password}
+              loading={resending}
+              loadingLabel="Sending…"
+              disabled={!email.trim() || !password}
               onClick={onResendLoginOtp}
               className="mt-3 w-full rounded-lg border border-lh-border py-2.5 text-sm font-semibold text-lh-ink hover:bg-lh-surface disabled:opacity-50"
             >
-              {resending ? "Sending…" : "Resend code"}
-            </button>
+              Resend code
+            </LoadingButton>
 
             <button
               type="button"
@@ -177,12 +190,14 @@ export function Login() {
                 />
               </div>
               {err && <p className="text-sm text-red-600">{err}</p>}
-              <button
+              <LoadingButton
                 type="submit"
-                className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                loading={submittingPassword}
+                loadingLabel="Signing in…"
+                className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
               >
                 Sign in
-              </button>
+              </LoadingButton>
             </form>
 
             <div className="mt-4 rounded-lg border border-lh-border bg-lh-surface/80 p-3">

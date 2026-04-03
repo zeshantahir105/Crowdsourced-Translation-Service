@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api";
 
@@ -21,27 +23,45 @@ const premiumFeatures = [
 
 export function Pricing() {
   const { user, isPremium, refreshMe } = useAuth();
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
 
   async function checkout() {
     if (!user) {
       window.location.href = "/login?from=/pricing";
       return;
     }
+    setCheckoutBusy(true);
     try {
       const r = await api<{ url: string }>("/billing/create-checkout-session", { method: "POST", json: {} });
       if (r.url) window.location.href = r.url;
     } catch (e) {
       alert(e instanceof Error ? e.message : "Checkout unavailable — configure Stripe in backend/.env");
+    } finally {
+      setCheckoutBusy(false);
     }
   }
 
   async function openBillingPortal() {
     if (!user) return;
+    setPortalBusy(true);
     try {
       const r = await api<{ url: string }>("/billing/create-portal-session", { method: "POST", json: {} });
       if (r.url) window.location.href = r.url;
     } catch (e) {
       alert(e instanceof Error ? e.message : "Could not open billing portal");
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function refreshPlan() {
+    setRefreshBusy(true);
+    try {
+      await refreshMe();
+    } finally {
+      setRefreshBusy(false);
     }
   }
 
@@ -125,41 +145,49 @@ export function Pricing() {
             )}
             {user && !isPremium && (
               <>
-                <button
+                <LoadingButton
                   type="button"
                   onClick={checkout}
-                  className="mt-8 w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                  loading={checkoutBusy}
+                  loadingLabel="Redirecting to Stripe…"
+                  className="mt-8 w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
                 >
                   Subscribe with Stripe
-                </button>
-                <button
+                </LoadingButton>
+                <LoadingButton
                   type="button"
-                  onClick={() => refreshMe()}
-                  className="mt-2 w-full text-center text-xs text-lh-blue hover:underline"
+                  onClick={refreshPlan}
+                  loading={refreshBusy}
+                  loadingLabel="Refreshing…"
+                  className="mt-2 w-full rounded-lg py-2 text-center text-xs font-semibold text-lh-blue hover:bg-lh-surface hover:underline disabled:opacity-50"
                 >
                   Refresh plan after checkout
-                </button>
+                </LoadingButton>
               </>
             )}
             {user && isPremium && (
               <div className="mt-8 space-y-2">
-                <button
+                <LoadingButton
                   type="button"
                   onClick={openBillingPortal}
-                  className="w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+                  loading={portalBusy}
+                  loadingLabel="Opening portal…"
+                  className="w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
                 >
                   Manage subscription
-                </button>
+                </LoadingButton>
                 <p className="text-center text-xs text-lh-muted">
                   Update payment method, view invoices, or cancel your plan in Stripe&apos;s billing portal.
                 </p>
-                <button
+                <LoadingButton
                   type="button"
-                  onClick={() => refreshMe()}
-                  className="w-full text-center text-xs text-lh-blue hover:underline"
+                  onClick={refreshPlan}
+                  loading={refreshBusy}
+                  loadingLabel="Refreshing…"
+                  className="w-full rounded-lg py-2 text-center text-xs font-semibold text-lh-blue hover:bg-lh-surface hover:underline disabled:opacity-50"
                 >
                   Refresh plan status
-                </button>
+                </LoadingButton>
               </div>
             )}
           </div>

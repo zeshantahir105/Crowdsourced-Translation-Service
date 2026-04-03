@@ -246,7 +246,7 @@ export function RequestDetail() {
               className="mt-4 inline-flex items-center gap-2 rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              Submit version
+              {saving ? "Saving…" : "Submit version"}
             </button>
           </div>
         )}
@@ -299,8 +299,9 @@ export function RequestDetail() {
               type="button"
               onClick={submitReview}
               disabled={reviewBusy}
-              className="mt-3 rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
+              className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
             >
+              {reviewBusy ? <Loader2 className="size-4 animate-spin" /> : null}
               {reviewBusy ? "Submitting…" : "Submit review"}
             </button>
           </div>

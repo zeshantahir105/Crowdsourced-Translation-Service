@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -7,6 +8,7 @@ export function Account() {
   const { user, reputation, isPremium, logout, refreshMe } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const syncedRef = useRef(false);
+  const [checkoutSyncing, setCheckoutSyncing] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("checkout") !== "success") return;
@@ -15,6 +17,7 @@ export function Account() {
     syncedRef.current = true;
 
     (async () => {
+      setCheckoutSyncing(true);
       try {
         await api("/billing/sync-checkout-session", {
           method: "POST",
@@ -32,6 +35,8 @@ export function Account() {
         );
       } catch {
         syncedRef.current = false;
+      } finally {
+        setCheckoutSyncing(false);
       }
     })();
   }, [searchParams, setSearchParams, refreshMe]);
@@ -42,6 +47,13 @@ export function Account() {
     <div className="min-h-full bg-lh-surface px-4 py-8 md:px-8">
       <div className="mx-auto max-w-[640px] space-y-6">
         <h1 className="text-2xl font-bold text-lh-ink">Account</h1>
+
+        {checkoutSyncing && (
+          <p className="flex items-center gap-2 rounded-lg border border-lh-border bg-white px-4 py-3 text-sm text-lh-muted shadow-sm">
+            <Loader2 className="size-4 shrink-0 animate-spin text-lh-blue" aria-hidden />
+            Updating your plan from checkout…
+          </p>
+        )}
 
         <div className="rounded-xl border border-lh-border bg-white p-6 shadow-sm space-y-3 text-sm">
           <div>

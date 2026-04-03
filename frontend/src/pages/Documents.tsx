@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp, Loader2 } from "lucide-react";
+import { FileUp } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
 import { apiFormData } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { DOMAINS, LANGUAGES } from "../langs";
@@ -135,14 +136,15 @@ export function Documents() {
 
           {msg && <p className="text-sm text-lh-ink">{msg}</p>}
 
-          <button
+          <LoadingButton
             type="submit"
-            disabled={!file || busy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
+            loading={busy}
+            loadingLabel="Uploading…"
+            disabled={!file}
+            className="w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
             Upload & start workflow
-          </button>
+          </LoadingButton>
         </form>
       </div>
     </div>

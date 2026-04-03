@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Clock, FileStack, TrendingUp } from "lucide-react";
+import { CheckCircle2, Clock, FileStack, Loader2, TrendingUp } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -19,13 +19,18 @@ export function Dashboard() {
   const { user, reputation } = useAuth();
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { quiet?: boolean }) => {
+    if (!opts?.quiet) setLoading(true);
     try {
       const r = await api<{ requests: RequestRow[] }>("/translate");
       setRequests(r.requests);
+      setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      if (!opts?.quiet) setLoading(false);
     }
   }, []);
 
@@ -34,7 +39,7 @@ export function Dashboard() {
   }, [load]);
 
   useEffect(() => {
-    const h = () => load();
+    const h = () => load({ quiet: true });
     window.addEventListener("lh:translation", h);
     return () => window.removeEventListener("lh:translation", h);
   }, [load]);
@@ -45,9 +50,17 @@ export function Dashboard() {
   return (
     <div className="min-h-full bg-lh-surface px-4 py-8 md:px-8">
       <div className="mx-auto max-w-[1200px] space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-lh-ink">Dashboard</h1>
-          <p className="text-sm text-lh-muted">Overview of your translation activity</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-lh-ink">Dashboard</h1>
+            <p className="text-sm text-lh-muted">Overview of your translation activity</p>
+          </div>
+          {loading && (
+            <span className="inline-flex items-center gap-2 text-sm text-lh-muted">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              Loading…
+            </span>
+          )}
         </div>
 
         <div className="rounded-xl border border-lh-border bg-white p-4 shadow-sm md:p-6">

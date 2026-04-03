@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Key, Loader2, Trash2 } from "lucide-react";
+import { LoadingButton } from "../components/LoadingButton";
 import { api } from "../api";
 
 type KeyRow = {
@@ -17,6 +18,7 @@ export function Developer() {
   const [name, setName] = useState("Production");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
@@ -58,11 +60,14 @@ export function Developer() {
   }
 
   async function del(id: string) {
+    setDeletingId(id);
     try {
       await api(`/developer/keys/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -105,15 +110,16 @@ export function Developer() {
             className="w-full rounded-lg border border-lh-border px-3 py-2 text-sm"
             placeholder="Key label"
           />
-          <button
+          <LoadingButton
             type="button"
-            disabled={busy}
+            loading={busy}
+            loadingLabel="Generating…"
             onClick={createKey}
-            className="inline-flex items-center gap-2 rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
+            className="rounded-lg bg-lh-blue px-4 py-2 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Key className="size-4" />}
+            <Key className="size-4" />
             Generate API key
-          </button>
+          </LoadingButton>
           {newKey && (
             <div className="rounded-lg bg-amber-50 p-4 text-sm">
               <p className="font-semibold text-amber-900">Copy now — shown once:</p>
@@ -146,11 +152,16 @@ export function Developer() {
                 </div>
                 <button
                   type="button"
+                  disabled={deletingId !== null}
                   onClick={() => del(k.id)}
-                  className="rounded-lg p-2 text-lh-muted hover:bg-red-50 hover:text-red-600"
+                  className="rounded-lg p-2 text-lh-muted hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                   aria-label="Revoke"
                 >
-                  <Trash2 className="size-4" />
+                  {deletingId === k.id ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
                 </button>
               </li>
             ))}

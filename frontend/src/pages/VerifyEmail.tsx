@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 
 export function VerifyEmail() {
@@ -11,6 +12,7 @@ export function VerifyEmail() {
   const [err, setErr] = useState("");
   const [sentHint, setSentHint] = useState(false);
   const [resending, setResending] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const q = searchParams.get("email")?.trim();
@@ -24,11 +26,14 @@ export function VerifyEmail() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setSubmitting(true);
     try {
       await verifyEmail(email.trim(), code.replace(/\s/g, ""));
       nav("/translator", { replace: true });
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Verification failed");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -81,22 +86,26 @@ export function VerifyEmail() {
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
           {sentHint && <p className="text-sm text-green-700">If that address is registered, a new code was sent.</p>}
-          <button
+          <LoadingButton
             type="submit"
-            className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+            loading={submitting}
+            loadingLabel="Verifying…"
+            className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >
             Verify and continue
-          </button>
+          </LoadingButton>
         </form>
 
-        <button
+        <LoadingButton
           type="button"
-          disabled={resending || !email.trim()}
+          loading={resending}
+          loadingLabel="Sending…"
+          disabled={!email.trim()}
           onClick={onResend}
           className="mt-3 w-full rounded-lg border border-lh-border py-2.5 text-sm font-semibold text-lh-ink hover:bg-lh-surface disabled:opacity-50"
         >
-          {resending ? "Sending…" : "Resend code"}
-        </button>
+          Resend code
+        </LoadingButton>
 
         <p className="mt-6 text-center text-sm text-lh-muted">
           <Link className="font-semibold text-lh-blue hover:underline" to="/login">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { LoadingButton } from "../components/LoadingButton";
 import { useAuth, type SignupRole } from "../context/AuthContext";
 
 const ROLES: { id: SignupRole; title: string; desc: string }[] = [
@@ -32,6 +33,8 @@ export function Register() {
   const [err, setErr] = useState("");
   const [sentHint, setSentHint] = useState(false);
   const [resending, setResending] = useState(false);
+  const [submittingForm, setSubmittingForm] = useState(false);
+  const [submittingVerify, setSubmittingVerify] = useState(false);
 
   if (user?.emailVerified) {
     return <Navigate to="/translator" replace />;
@@ -40,6 +43,7 @@ export function Register() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setSubmittingForm(true);
     try {
       const r = await signup(email, password, name, role);
       if (r.needsVerification) {
@@ -47,17 +51,22 @@ export function Register() {
       }
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Signup failed");
+    } finally {
+      setSubmittingForm(false);
     }
   }
 
   async function onVerify(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
+    setSubmittingVerify(true);
     try {
       await verifyEmail(email.trim(), code.replace(/\s/g, ""));
       nav("/translator", { replace: true });
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "Verification failed");
+    } finally {
+      setSubmittingVerify(false);
     }
   }
 
@@ -103,20 +112,23 @@ export function Register() {
             {sentHint && (
               <p className="text-sm text-green-700">A new code was sent to your inbox.</p>
             )}
-            <button
+            <LoadingButton
               type="submit"
-              className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+              loading={submittingVerify}
+              loadingLabel="Verifying…"
+              className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
             >
               Verify and continue
-            </button>
-            <button
+            </LoadingButton>
+            <LoadingButton
               type="button"
-              disabled={resending}
+              loading={resending}
+              loadingLabel="Sending…"
               onClick={onResend}
               className="w-full rounded-lg border border-lh-border py-2.5 text-sm font-semibold text-lh-ink hover:bg-lh-surface disabled:opacity-50"
             >
-              {resending ? "Sending…" : "Resend code"}
-            </button>
+              Resend code
+            </LoadingButton>
             <button
               type="button"
               onClick={() => {
@@ -195,12 +207,14 @@ export function Register() {
             />
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <button
+          <LoadingButton
             type="submit"
-            className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover"
+            loading={submittingForm}
+            loadingLabel="Creating account…"
+            className="w-full rounded-lg bg-lh-blue py-2.5 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >
             Sign up
-          </button>
+          </LoadingButton>
         </form>
         )}
 
