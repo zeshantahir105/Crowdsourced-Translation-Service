@@ -38,25 +38,25 @@ enum TaskStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String?
-  name         String
-  role         UserRole @default(CONSUMER)
-  planTier     PlanTier @default(FREE)
+  id                         String    @id @default(uuid())
+  email                      String    @unique
+  passwordHash               String?
+  name                       String
+  role                       UserRole  @default(CONSUMER)
+  planTier                   PlanTier  @default(FREE)
   /// Password sign-ups must verify email; OAuth users are verified by the provider (default true for existing rows).
-  emailVerified Boolean @default(true)
+  emailVerified              Boolean   @default(true)
   /// SHA-256 hash of OTP (with server pepper); cleared after verification.
-  emailVerificationCodeHash String?
+  emailVerificationCodeHash  String?
   emailVerificationExpiresAt DateTime?
   /// Per-login OTP (password sign-in only); cleared after verify-login-otp.
-  loginOtpCodeHash String?
-  loginOtpExpiresAt DateTime?
+  loginOtpCodeHash           String?
+  loginOtpExpiresAt          DateTime?
   /// When set, PREMIUM is valid until this instant (null = no expiry / manual grant)
-  subscriptionExpiresAt DateTime?
-  googleId     String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  subscriptionExpiresAt      DateTime?
+  googleId                   String?   @unique
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
   requestsCreated TranslationRequest[] @relation("RequestOwner")
   versions        TranslationVersion[]
@@ -68,50 +68,50 @@ model User {
 }
 
 model TranslationRequest {
-  id          String        @id @default(uuid())
-  ownerId     String
-  owner       User          @relation("RequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  id                     String        @id @default(uuid())
+  ownerId                String
+  owner                  User          @relation("RequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   /// TEXT = pasted text; DOCUMENT = uploaded file (text extracted server-side)
-  inputKind   String        @default("TEXT")
-  sourceText  String        @db.Text
-  sourceLang  String
-  targetLang  String
-  domain      String        @default("general")
-  status      RequestStatus @default(DRAFT)
-  aiDraft     String?       @db.Text
+  inputKind              String        @default("TEXT")
+  sourceText             String        @db.Text
+  sourceLang             String
+  targetLang             String
+  domain                 String        @default("general")
+  status                 RequestStatus @default(DRAFT)
+  aiDraft                String?       @db.Text
   attachmentOriginalName String?
   attachmentMime         String?
   attachmentPath         String?
   extractedCharCount     Int?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
   versions TranslationVersion[]
   tasks    Task[]
 }
 
 model TranslationVersion {
-  id           String   @id @default(uuid())
+  id           String             @id @default(uuid())
   requestId    String
   request      TranslationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   translatorId String
-  translator   User     @relation(fields: [translatorId], references: [id], onDelete: Cascade)
-  text         String   @db.Text
+  translator   User               @relation(fields: [translatorId], references: [id], onDelete: Cascade)
+  text         String             @db.Text
   score        Float?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime           @default(now())
 
   qualityScores QualityScore[]
 }
 
 model QualityScore {
-  id         String   @id @default(uuid())
+  id         String             @id @default(uuid())
   versionId  String
   version    TranslationVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
   reviewerId String
-  reviewer   User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewer   User               @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   rating     Int
-  comments   String?  @db.Text
-  createdAt  DateTime @default(now())
+  comments   String?            @db.Text
+  createdAt  DateTime           @default(now())
 
   @@unique([versionId, reviewerId])
 }
@@ -126,29 +126,29 @@ model Reputation {
 }
 
 model Glossary {
-  id              String   @id @default(uuid())
-  ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  sourceTerm      String
-  translatedTerm  String
-  context         String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  ownerId        String
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sourceTerm     String
+  translatedTerm String
+  context        String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([ownerId])
 }
 
 model Task {
-  id          String     @id @default(uuid())
+  id          String             @id @default(uuid())
   requestId   String
   request     TranslationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   assigneeId  String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?              @relation("TaskAssignee", fields: [assigneeId], references: [id])
   role        TaskRole
-  status      TaskStatus @default(OPEN)
+  status      TaskStatus         @default(OPEN)
   assignedAt  DateTime?
   completedAt DateTime?
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime           @default(now())
 }
 
 model ApiKey {
