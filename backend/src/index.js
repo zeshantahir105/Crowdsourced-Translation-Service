@@ -35,6 +35,15 @@ function clientOrigins() {
 const allowedOrigins = clientOrigins();
 
 const app = express();
+// Render, Railway, etc. sit behind a proxy that sets X-Forwarded-For. Without this,
+// express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR and client IP is wrong.
+if (process.env.TRUST_PROXY === "0" || process.env.TRUST_PROXY === "false") {
+  app.set("trust proxy", false);
+} else {
+  const hops = Number(process.env.TRUST_PROXY_HOPS);
+  app.set("trust proxy", Number.isFinite(hops) && hops >= 0 ? hops : 1);
+}
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
