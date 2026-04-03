@@ -1,4 +1,20 @@
-const base = () => import.meta.env.VITE_API_URL || "";
+let warnedMissingApiUrl = false;
+
+function base(): string {
+  const raw = (import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
+  if (
+    !warnedMissingApiUrl &&
+    !raw &&
+    typeof window !== "undefined" &&
+    !/^localhost$|^127\.0\.0\.1$/i.test(window.location.hostname)
+  ) {
+    warnedMissingApiUrl = true;
+    console.error(
+      "[LingoHub] VITE_API_URL is not set. API calls go to this site and will fail. Add VITE_API_URL in Vercel (your Render API origin, no trailing slash)."
+    );
+  }
+  return raw;
+}
 
 export class ApiError extends Error {
   readonly status: number;

@@ -22,11 +22,23 @@ import billingRoutes from "./routes/billing.js";
 import { isQueueEnabled } from "./queues/lingoHubQueue.js";
 import { setupRedisBridge } from "./realtime/redisBridge.js";
 
+/** Comma-separated browser origins (Vercel prod, preview, local). Trailing slashes stripped — must match browser Origin exactly. */
+function clientOrigins() {
+  const raw = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  return list.length ? list : ["http://localhost:5173"];
+}
+
+const allowedOrigins = clientOrigins();
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin: allowedOrigins.length <= 1 ? allowedOrigins[0] : allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -48,7 +60,7 @@ const apiLimiter = rateLimit({
 app.use(passport.initialize());
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin: allowedOrigins.length <= 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   })
 );

@@ -9,18 +9,27 @@ export function AuthCallback() {
   const { refreshMe } = useAuth();
 
   useEffect(() => {
-    const token = params.get("token");
-    const err = params.get("error");
-    if (err) {
-      nav("/login?error=google", { replace: true });
-      return;
-    }
-    if (token) {
-      setToken(token);
-      refreshMe().then(() => nav("/translator", { replace: true }));
-    } else {
+    let cancelled = false;
+    (async () => {
+      const token = params.get("token");
+      const err = params.get("error");
+      if (err) {
+        nav("/login?error=google", { replace: true });
+        return;
+      }
+      if (token) {
+        setToken(token);
+        const ok = await refreshMe();
+        if (cancelled) return;
+        if (ok) nav("/translator", { replace: true });
+        else nav("/login?error=session", { replace: true });
+        return;
+      }
       nav("/login", { replace: true });
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params, nav, refreshMe]);
 
   return (

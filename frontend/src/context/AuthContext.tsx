@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setToken } from "../api";
+import { api, getToken, isApiError, setToken } from "../api";
 
 export type Role = "CONSUMER" | "TRANSLATOR" | "REVIEWER" | "ADMIN";
 export type SignupRole = "CONSUMER" | "TRANSLATOR" | "REVIEWER";
@@ -40,7 +40,7 @@ type AuthState = {
   resendVerification: (email: string) => Promise<void>;
   resendLoginOtp: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  refreshMe: () => Promise<void>;
+  refreshMe: () => Promise<boolean>;
   isPremium: boolean;
 };
 
@@ -59,13 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [reputation, setReputation] = useState<Rep>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshMe = useCallback(async () => {
+  const refreshMe = useCallback(async (): Promise<boolean> => {
     const t = getToken();
     if (!t) {
       setUser(null);
       setReputation(null);
       setLoading(false);
-      return;
+      return false;
     }
     try {
       const r = await api<{ user: User; reputation: { points: number; badges: string[] } | null }>(
@@ -76,10 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: r.user.emailVerified ?? true,
       });
       setReputation(r.reputation ? { points: r.reputation.points, badges: r.reputation.badges } : null);
-    } catch {
-      setToken(null);
+      return true;
+    } catch (e) {
+      if (isApiError(e) && e.status === 401) {
+        setToken(null);
+      }
       setUser(null);
       setReputation(null);
+      return false;
     } finally {
       setLoading(false);
     }

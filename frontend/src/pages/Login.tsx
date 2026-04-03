@@ -1,14 +1,22 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { isApiError } from "../api";
 import { useAuth, type SignupRole } from "../context/AuthContext";
 
-const apiBase = import.meta.env.VITE_API_URL || "";
+const apiBase = (import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
 
 export function Login() {
   const { login, verifyLoginOtp, resendLoginOtp, user } = useAuth();
   const nav = useNavigate();
   const loc = useLocation() as { state?: { from?: string } };
+  const [searchParams] = useSearchParams();
+  const urlError = searchParams.get("error");
+  const urlErrorMessage =
+    urlError === "google"
+      ? "Google sign-in did not complete. Try again or use email and password."
+      : urlError === "session"
+        ? "Your API could not confirm this browser session. On Vercel set VITE_API_URL to your backend URL. On Render set CLIENT_ORIGIN to this site’s origin (comma-separated if you use previews)."
+        : "";
   const [step, setStep] = useState<"password" | "otp">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,6 +147,11 @@ export function Login() {
           <>
             <h1 className="text-2xl font-bold text-lh-blue">Welcome back</h1>
             <p className="mt-1 text-sm text-lh-muted">Sign in to LingoHub AI</p>
+            {urlErrorMessage && (
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {urlErrorMessage}
+              </p>
+            )}
 
             <form onSubmit={onPasswordSubmit} className="mt-8 space-y-4">
               <div>
