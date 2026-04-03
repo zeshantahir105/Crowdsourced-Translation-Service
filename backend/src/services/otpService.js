@@ -36,3 +36,21 @@ export function verifyLoginOtpHash(email, code, hash) {
     return false;
   }
 }
+
+export function hashPasswordResetOtp(email, code) {
+  const pepper = process.env.OTP_PEPPER || "change-me-in-production";
+  return crypto
+    .createHash("sha256")
+    .update(`pwdreset:${email.toLowerCase().trim()}:${code}:${pepper}`)
+    .digest("hex");
+}
+
+export function verifyPasswordResetOtpHash(email, code, hash) {
+  if (!hash || !code || hash.length !== 64) return false;
+  try {
+    const tryHash = hashPasswordResetOtp(email, code);
+    return crypto.timingSafeEqual(Buffer.from(tryHash, "hex"), Buffer.from(hash, "hex"));
+  } catch {
+    return false;
+  }
+}

@@ -12,6 +12,7 @@ export function Login() {
   const loc = useLocation() as { state?: { from?: string } };
   const [searchParams] = useSearchParams();
   const urlError = searchParams.get("error");
+  const resetOk = searchParams.get("reset") === "success";
   const urlErrorMessage =
     urlError === "google"
       ? "Google sign-in did not complete. Try again or use email and password."
@@ -160,6 +161,11 @@ export function Login() {
           <>
             <h1 className="text-2xl font-bold text-lh-blue">Welcome back</h1>
             <p className="mt-1 text-sm text-lh-muted">Sign in to LingoHub AI</p>
+            {resetOk && (
+              <p className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
+                Password updated. Sign in with your new password.
+              </p>
+            )}
             {urlErrorMessage && (
               <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 {urlErrorMessage}
@@ -179,7 +185,12 @@ export function Login() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-lh-muted">Password</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-semibold text-lh-muted">Password</label>
+                  <Link className="text-xs font-semibold text-lh-blue hover:underline" to="/forgot-password">
+                    Forgot password?
+                  </Link>
+                </div>
                 <input
                   className="mt-1 w-full rounded-lg border border-lh-border px-3 py-2 text-sm outline-none ring-lh-blue focus:ring-2"
                   type="password"

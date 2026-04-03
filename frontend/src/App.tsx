@@ -9,9 +9,11 @@ import { Dashboard } from "./pages/Dashboard";
 import { Developer } from "./pages/Developer";
 import { Documents } from "./pages/Documents";
 import { Glossary } from "./pages/Glossary";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
 import { Pricing } from "./pages/Pricing";
 import { Register } from "./pages/Register";
+import { ResetPassword } from "./pages/ResetPassword";
 import { VerifyEmail } from "./pages/VerifyEmail";
 import { RequestDetail } from "./pages/RequestDetail";
 import { Tasks } from "./pages/Tasks";
@@ -22,6 +24,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/oauth/callback" element={<AuthCallback />} />

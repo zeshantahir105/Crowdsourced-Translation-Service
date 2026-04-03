@@ -52,6 +52,9 @@ model User {
   /// Per-login OTP (password sign-in only); cleared after verify-login-otp.
   loginOtpCodeHash           String?
   loginOtpExpiresAt          DateTime?
+  /// Forgot-password OTP; cleared after successful reset.
+  passwordResetCodeHash    String?
+  passwordResetExpiresAt   DateTime?
   /// When set, PREMIUM is valid until this instant (null = no expiry / manual grant)
   subscriptionExpiresAt      DateTime?
   googleId                   String?   @unique

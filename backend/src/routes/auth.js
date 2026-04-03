@@ -6,13 +6,15 @@ import { prisma } from "../db.js";
 import { hashPassword, comparePassword, signToken } from "../auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import { isBootstrapAdminEmail } from "../services/planService.js";
-import { sendLoginOtp, sendVerificationOtp } from "../services/emailService.js";
+import { sendLoginOtp, sendPasswordResetOtp, sendVerificationOtp } from "../services/emailService.js";
 import {
   generateOtpDigits,
   hashEmailOtp,
   hashLoginOtp,
+  hashPasswordResetOtp,
   verifyLoginOtpHash,
   verifyOtpHash,
+  verifyPasswordResetOtpHash,
 } from "../services/otpService.js";
 
 const router = Router();
@@ -35,6 +37,21 @@ const resendVerificationLimiter = rateLimit({
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many reset requests; try again in an hour." },
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -342,6 +359,119 @@ router.post("/verify-login-otp", verifyEmailLimiter, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Verification failed" });
+  }
+});
+
+router.post("/forgot-password", forgotPasswordLimiter, async (req, res) => {
+  try {
+    const emailRaw = req.body?.email;
+    const input = typeof emailRaw === "string" ? emailRaw.trim() : "";
+    if (!input) {
+      return res.status(400).json({ error: "email required" });
+    }
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: input, mode: "insensitive" } },
+    });
+    if (!user?.passwordHash) {
+      return res.json({
+        ok: true,
+        message: "If an account exists for that email, we sent a reset code.",
+      });
+    }
+
+    const code = generateOtpDigits();
+    const codeHash = hashPasswordResetOtp(user.email, code);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetCodeHash: codeHash,
+        passwordResetExpiresAt: expiresAt,
+        loginOtpCodeHash: null,
+        loginOtpExpiresAt: null,
+      },
+    });
+
+    try {
+      await sendPasswordResetOtp({ to: user.email, name: user.name, code });
+    } catch (err) {
+      console.error("Password reset email failed:", err);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetCodeHash: null,
+          passwordResetExpiresAt: null,
+        },
+      });
+      return res.status(503).json({
+        error:
+          "Could not send email. Check SMTP_HOST, SMTP_USER, SMTP_PASS, and EMAIL_FROM in backend/.env.",
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "If an account exists for that email, we sent a reset code.",
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Request failed" });
+  }
+});
+
+router.post("/reset-password", resetPasswordLimiter, async (req, res) => {
+  try {
+    const emailRaw = req.body?.email;
+    const input = typeof emailRaw === "string" ? emailRaw.trim() : "";
+    const code = req.body?.code;
+    const newPassword = req.body?.newPassword;
+    if (!input || !code || !newPassword) {
+      return res.status(400).json({ error: "email, code, and newPassword required" });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: input, mode: "insensitive" } },
+    });
+    if (!user?.passwordHash) {
+      return res.status(400).json({ error: "Invalid or expired code" });
+    }
+    if (!user.passwordResetCodeHash || !user.passwordResetExpiresAt) {
+      return res.status(400).json({
+        error: "No reset in progress. Request a new code from Forgot password.",
+        code: "NO_RESET",
+      });
+    }
+    if (new Date() > user.passwordResetExpiresAt) {
+      return res.status(400).json({ error: "Code expired. Request a new one.", code: "EXPIRED" });
+    }
+    const normalized = String(code).replace(/\s/g, "");
+    if (!/^\d{6}$/.test(normalized)) {
+      return res.status(400).json({ error: "Enter the 6-digit code" });
+    }
+    if (!verifyPasswordResetOtpHash(user.email, normalized, user.passwordResetCodeHash)) {
+      return res.status(400).json({ error: "Incorrect code" });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetCodeHash: null,
+        passwordResetExpiresAt: null,
+        loginOtpCodeHash: null,
+        loginOtpExpiresAt: null,
+      },
+    });
+
+    res.json({ ok: true, message: "Password updated. You can sign in now." });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Reset failed" });
   }
 });
 

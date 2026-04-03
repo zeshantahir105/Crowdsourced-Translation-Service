@@ -99,3 +99,16 @@ export async function sendLoginOtp({ to, name, code }) {
   const text = `Hi ${safeName}, Your LingoHub sign-in code is: ${code}. It expires in 15 minutes.`;
   return deliverOtpMail({ subject, html, text, to, devCode: code });
 }
+
+export async function sendPasswordResetOtp({ to, name, code }) {
+  const safeName = name ? String(name).slice(0, 120) : "there";
+  const subject = `${code} is your LingoHub password reset code`;
+  const html = `
+    <p>Hi ${safeName},</p>
+    <p>We received a request to reset your LingoHub password. Use this code:</p>
+    <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>
+    <p>It expires in 15 minutes. If you did not ask for this, you can ignore this email.</p>
+  `;
+  const text = `Hi ${safeName}, Your LingoHub password reset code is: ${code}. It expires in 15 minutes.`;
+  return deliverOtpMail({ subject, html, text, to, devCode: code });
+}
