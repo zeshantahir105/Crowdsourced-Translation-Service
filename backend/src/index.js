@@ -19,6 +19,7 @@ import tasksRoutes from "./routes/tasks.js";
 import developerRoutes, { createPublicTranslateRouter } from "./routes/developer.js";
 import adminRoutes from "./routes/admin.js";
 import billingRoutes from "./routes/billing.js";
+import planLimitsRoutes from "./routes/planLimits.js";
 import { isQueueEnabled } from "./queues/lingoHubQueue.js";
 import { setupRedisBridge } from "./realtime/redisBridge.js";
 
@@ -90,6 +91,8 @@ app.use(limiter);
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "lingohub-api" });
 });
+
+app.use("/plans", planLimitsRoutes);
 
 app.use("/auth", authRoutes);
 app.use("/translate", translateRoutes);

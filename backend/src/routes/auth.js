@@ -7,6 +7,7 @@ import { hashPassword, comparePassword, signToken } from "../auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import { isBootstrapAdminEmail } from "../services/planService.js";
 import { sendLoginOtp, sendPasswordResetOtp, sendVerificationOtp } from "../services/emailService.js";
+import { reconcileStripePremiumForUser } from "../services/stripeReconcile.js";
 import {
   generateOtpDigits,
   hashEmailOtp,
@@ -226,8 +227,11 @@ router.post("/verify-email", verifyEmailLimiter, async (req, res) => {
       },
     });
 
+    await reconcileStripePremiumForUser(updated.id, updated.email);
+    const afterStripe = await prisma.user.findUnique({ where: { id: updated.id } });
+
     const token = signToken({ sub: user.id });
-    res.json({ token, user: publicUser(updated) });
+    res.json({ token, user: publicUser(afterStripe || updated) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Verification failed" });
@@ -354,8 +358,11 @@ router.post("/verify-login-otp", verifyEmailLimiter, async (req, res) => {
       data: { loginOtpCodeHash: null, loginOtpExpiresAt: null },
     });
 
+    await reconcileStripePremiumForUser(updated.id, updated.email);
+    const afterStripe = await prisma.user.findUnique({ where: { id: updated.id } });
+
     const token = signToken({ sub: user.id });
-    res.json({ token, user: publicUser(updated) });
+    res.json({ token, user: publicUser(afterStripe || updated) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Verification failed" });
@@ -514,6 +521,7 @@ router.post("/resend-login-otp", resendVerificationLimiter, async (req, res) => 
 });
 
 router.get("/me", requireAuth, async (req, res) => {
+  await reconcileStripePremiumForUser(req.user.id, req.user.email);
   const full = await prisma.user.findUnique({
     where: { id: req.user.id },
     select: {
@@ -553,12 +561,13 @@ router.get("/google/callback", (req, res, next) => {
     res,
     next
   );
-}, (req, res) => {
+}, async (req, res) => {
   const user = req.user;
   if (!user) {
     const front = process.env.FRONTEND_URL || "http://localhost:5173";
     return res.redirect(`${front}/login?error=google`);
   }
+  await reconcileStripePremiumForUser(user.id, user.email);
   const token = signToken({ sub: user.id });
   const front = process.env.FRONTEND_URL || "http://localhost:5173";
   res.redirect(`${front}/oauth/callback?token=${encodeURIComponent(token)}`);

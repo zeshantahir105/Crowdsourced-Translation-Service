@@ -2,6 +2,8 @@
 
 This document maps [`requirements.txt`](requirements.txt) (PRD / SADD / MVP) to the current codebase, describes **how** each implemented area works, and lists **gaps** with reasons (out of scope, needs infrastructure, or follow-up work).
 
+For **local setup, env vars, and deployment**, see **[DEVELOPERS.md](DEVELOPERS.md)**. For **end-user** instructions, see **[FEATURES_AND_USAGE.md](FEATURES_AND_USAGE.md)**.
+
 ---
 
 ## 1. Executive summary
@@ -131,7 +133,7 @@ All entities from the PRD core MVP are represented in [`backend/prisma/schema.pr
 | `GET /tasks`          | ✓ (`/tasks`)                 |
 | `POST /api/translate` | ✓                            |
 
-Additional routes: `/documents`, `/developer/*`, `/billing/*`, `/webhooks/stripe`, `/admin/*`, `/auth/google`, `/auth/verify-email`, `/glossary/hints`, `/glossary/hints-for-request/:requestId`.
+Additional routes: `/documents`, `/developer/*`, `/billing/*`, `/webhooks/stripe`, `/admin/*`, `/auth/google`, `/auth/verify-email`, `/glossary/hints`, `/glossary/hints-for-request/:requestId`, **`GET /plans/limits`** (public JSON: Free/Premium max upload bytes, max extracted characters, allowed extensions — mirrors `planService.getPlanLimitsSnapshot()`).
 
 ---
 

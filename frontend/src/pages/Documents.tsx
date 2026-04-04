@@ -6,10 +6,13 @@ import { apiFormData, isApiError } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { DOMAINS } from "../langs";
+import { formatBytes, formatDocExtensions } from "../utils/formatBytes";
+import { usePlanLimits } from "../hooks/usePlanLimits";
 
 export function Documents() {
   const nav = useNavigate();
   const { user, isPremium } = useAuth();
+  const planLimits = usePlanLimits();
   const [sourceLang, setSourceLang] = useState("EN");
   const [targetLang, setTargetLang] = useState("DE");
   const [domain, setDomain] = useState("general");
@@ -104,14 +107,45 @@ export function Documents() {
 
         <div className="rounded-xl border border-lh-border bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-lh-ink">Plan limits</h2>
-          <ul className="mt-2 list-inside list-disc text-sm text-lh-muted">
-            <li>
-              <strong className="text-lh-ink">Free:</strong> .txt only, smaller file size, character cap after
-              extraction.
+          <p className="mt-1 text-xs text-lh-muted">
+            These numbers are loaded from the server so they match what you get at upload time. Your organization can
+            change them via hosting configuration.
+          </p>
+          <ul className="mt-3 space-y-3 text-sm text-lh-muted">
+            <li className="list-none rounded-lg bg-lh-surface/60 p-3">
+              <strong className="text-lh-ink">Free</strong>
+              <ul className="mt-2 list-inside list-disc space-y-1 ps-1">
+                <li>
+                  <strong className="text-lh-ink">File types:</strong>{" "}
+                  {formatDocExtensions(planLimits.free.allowedDocExtensions)}
+                </li>
+                <li>
+                  <strong className="text-lh-ink">Max upload size:</strong>{" "}
+                  {formatBytes(planLimits.free.maxDocBytes)} per file
+                </li>
+                <li>
+                  <strong className="text-lh-ink">Max extracted text:</strong> up to{" "}
+                  {planLimits.free.maxTextChars.toLocaleString()} characters counted toward translation after we read the
+                  file
+                </li>
+              </ul>
             </li>
-            <li>
-              <strong className="text-lh-ink">Premium:</strong> .txt, .docx, .pdf, larger files, higher character
-              limits.
+            <li className="list-none rounded-lg bg-lh-surface/60 p-3">
+              <strong className="text-lh-ink">Premium</strong>
+              <ul className="mt-2 list-inside list-disc space-y-1 ps-1">
+                <li>
+                  <strong className="text-lh-ink">File types:</strong>{" "}
+                  {formatDocExtensions(planLimits.premium.allowedDocExtensions)}
+                </li>
+                <li>
+                  <strong className="text-lh-ink">Max upload size:</strong>{" "}
+                  {formatBytes(planLimits.premium.maxDocBytes)} per file
+                </li>
+                <li>
+                  <strong className="text-lh-ink">Max extracted text:</strong> up to{" "}
+                  {planLimits.premium.maxTextChars.toLocaleString()} characters after extraction
+                </li>
+              </ul>
             </li>
           </ul>
           {!isPremium && (

@@ -29,8 +29,9 @@ router.post(
         const userId = session.metadata?.userId || session.client_reference_id;
         if (userId) {
           let subscriptionExpiresAt = null;
-          const subId = session.subscription;
-          if (subId && typeof subId === "string") {
+          const rawSub = session.subscription;
+          const subId = typeof rawSub === "string" ? rawSub : rawSub?.id;
+          if (subId) {
             const sub = await stripe.subscriptions.retrieve(subId);
             if (sub.current_period_end) {
               subscriptionExpiresAt = new Date(sub.current_period_end * 1000);

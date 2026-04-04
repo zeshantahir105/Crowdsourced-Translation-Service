@@ -2,94 +2,48 @@
 
 **LingoHub** is a crowdsourced translation platform that combines **AI-generated drafts** with a **human workflow**: translators refine text in-editor, reviewers score quality, and requesters keep a full version history. Subscriptions (Stripe), a developer API, and role-based access round out the MVP.
 
-For deep implementation notes and PRD traceability, see [`IMPLEMENTATION.md`](IMPLEMENTATION.md).
+---
+
+## Documentation
+
+| Document | Who it’s for |
+|----------|----------------|
+| **[DEVELOPERS.md](DEVELOPERS.md)** | **Engineers** — local setup, env vars, architecture, deployment (Render, worker, AI service). |
+| **[FEATURES_AND_USAGE.md](FEATURES_AND_USAGE.md)** | **End users** — how to use Translator, files, dashboard, jobs, tasks, glossary, billing. |
+| **[IMPLEMENTATION.md](IMPLEMENTATION.md)** | **Product / tech leads** — PRD traceability, API list, security notes, known gaps. |
 
 ---
 
-## Features
+## Features (summary)
 
 ### Authentication & users
 
-- **Email + password** sign-up with **email verification** (SMTP OTP via Nodemailer when configured; dev fallback logs the code).
+- **Email + password** sign-up with **email verification** (SMTP via Nodemailer when configured).
 - **Google OAuth** sign-in.
 - **Roles**: Consumer, Translator, Reviewer, and Admin (bootstrap admins via env).
 - **Plans**: Free vs Premium with higher text limits and document options (enforced in the API).
 
 ### Translation workflow
 
-- **Text jobs**: create requests, optional **live preview** (`/translate/preview`), and **workflow submit** with an **inline AI draft** by default. If `REDIS_URL` is set, a **BullMQ worker** (`npm run worker`) only retries jobs whose draft failed (optional).
-- **Documents**: upload supported file types (plan-based MIME/size limits), extracted text becomes the source for the same workflow.
-- **Dashboard**: lists translation requests **you own** (by account).
-- **Tasks inbox**: translators see **TRANSLATE** tasks; reviewers see **REVIEW** tasks after a version is submitted (open/assigned jobs, claim flow).
-- **Job detail**: source text, **AI draft**, **TipTap** editor for human versions, version history, glossary hints for the request owner’s terms.
-- **Statuses**: `DRAFT` → `IN_PROGRESS` → `REVIEW` → `APPROVED` (see API for allowed transitions).
+- **Text jobs**: live preview and workflow submit with **inline AI draft** by default; optional **Redis + BullMQ worker** for **retries** when the draft fails.
+- **Documents**: upload plan-limited file types; extracted text feeds the same workflow.
+- **Dashboard**, **Tasks**, **Job detail** (TipTap, versions, review), status progression **DRAFT → IN_PROGRESS → REVIEW → APPROVED**.
 
 ### AI service
 
-- Separate **FastAPI** app (`ai-service/`): `POST /translate/draft` with optional **`X-Service-Secret`** when `SERVICE_SECRET` is set.
-- **Provider order**: OpenAI (with domain context) → DeepL → placeholder text if no keys are configured.
-- Node **backend** calls the AI service via `AI_SERVICE_URL` / `AI_SERVICE_SECRET` (see `backend/.env.example`).
+- **FastAPI** app (`ai-service/`): OpenAI (domain context) → DeepL → configurable fallback messaging.
+- Node backend calls it via `AI_SERVICE_URL` / `AI_SERVICE_SECRET`.
 
-### Quality, review & reputation
+### Other
 
-- **Reviewers** (and admins) submit **1–5 ratings** and optional comments on a translation **version** while the request is in **REVIEW**.
-- **Version score** shown in the UI is the **average** of all ratings for that version (one score per reviewer per version).
-- Submitting a review **approves** the request and completes the review task (MVP: single review gate).
-
-#### How reputation is calculated
-
-Reputation is stored per user as **`points`** (integer) and **`badges`** (string array). It is **not** derived from a formula over star ratings—only **fixed bonuses** on specific actions:
-
-| Event | Who earns points | Points | Badges (on first reputation row creation for that path) |
-|-------|------------------|--------|---------------------------------------------------------|
-| Submit a translation version (`POST /versions`) | The submitting user | **+10** | `contributor` |
-| Submit a quality score (`POST /scores`) | The reviewer | **+5** | `reviewer` |
-| Same score submission | The **translator** who wrote that version | **+15** | *(no new badge in this step)* |
-
-- New users start at **0** points and an empty badge list when the account is created.
-- The numeric **rating (1–5)** does **not** change these increments; they are fixed each time a valid score is recorded.
-
-### Glossary
-
-- Per-user **glossary** CRUD.
-- **Hints** match glossary source terms inside source text (Translator uses your glossary; job detail can use the **request owner’s** glossary for staff).
-
-### Billing
-
-- **Stripe** Checkout for Premium, webhooks for subscription lifecycle (`/webhooks/stripe`).
-- Pricing and plan UI in the frontend.
-
-### Developer API
-
-- **API keys** (`/developer/keys`) and **`POST /api/translate`** with `X-Api-Key`, rate-limited separately from the main app.
-
-### Realtime
-
-- **Socket.IO** for notifications (e.g. translation updates, task claims). With Redis + worker, a **pub/sub bridge** can forward worker events to connected clients.
-
-### Admin
-
-- Admin routes for user/plan management (see `backend/src/routes/admin.js` and `IMPLEMENTATION.md`).
-
----
-
-## Tech stack
-
-| Layer | Technology |
-|-------|------------|
-| Web app | React (Vite), Tailwind, TipTap, Socket.IO client |
-| API | Node.js, Express, Prisma, JWT, Passport (Google) |
-| Database | PostgreSQL |
-| Optional queue | Redis, BullMQ (`npm run worker` in `backend`) |
-| AI | Python, FastAPI (`ai-service/`) |
-| Payments | Stripe |
+- **Stripe** Checkout for Premium; **Socket.IO** for lightweight realtime hints; **Glossary** with hints; **Developer API** (`POST /api/translate` with API key); **Admin** routes.
 
 ---
 
 ## Repository layout
 
 ```
-backend/       # Express API, Prisma schema, workers
+backend/       # Express API, Prisma, optional worker
 frontend/      # Vite + React SPA
 ai-service/    # FastAPI translation microservice
 docker-compose.yml   # PostgreSQL + Redis for local dev
@@ -97,51 +51,11 @@ docker-compose.yml   # PostgreSQL + Redis for local dev
 
 ---
 
-## Quick start (local)
+## Quick links
 
-1. **PostgreSQL** (and optionally **Redis**):  
-   `docker compose up -d` from the repo root starts Postgres (`5432`) and Redis (`6379`).
-
-2. **Backend**  
-   - Copy `backend/.env.example` → `backend/.env` and set `DATABASE_URL`, `JWT_SECRET`, etc.  
-   - `cd backend && npm install && npx prisma db push && npm run dev`  
-   - Optional: set `REDIS_URL=redis://localhost:6379` and run `npm run worker` in another terminal for **background retries** when the inline AI draft fails (not required for normal operation).
-
-3. **Frontend**  
-   - `cd frontend && npm install && npm run dev` (default Vite port, often `5173`).
-
-4. **AI service**  
-   - Copy `ai-service/.env.example` → `ai-service/.env` (API keys, optional `SERVICE_SECRET`).  
-   - From repo root: `npm run dev:ai` or `uvicorn app.main:app --reload --port 8000` inside `ai-service/`.
-
-5. **Root helper scripts** (from repo root): `npm run dev:api`, `npm run dev:web`, `npm run dev:ai`, `npm run db:push`.
-
----
-
-## Deploying on Render (and similar)
-
-You need **three pieces** for translations to work in production:
-
-1. **Backend** (Web Service) — Node API, same `npm start` as local. Set `DATABASE_URL`, `JWT_SECRET`, `AI_SERVICE_URL` (your AI service **public** URL, e.g. `https://your-ai.onrender.com`), and matching `AI_SERVICE_SECRET` if the AI service uses `SERVICE_SECRET`.
-2. **AI service** (separate Web Service) — Python/FastAPI from `ai-service/`, start command e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Set `OPENAI_API_KEY` and/or `DEEPL_API_KEY`, and the same `SERVICE_SECRET` as the backend.
-3. **Frontend** — static or Vite build; set `VITE_API_URL` to your backend origin (no trailing slash).
-
-### Do I need the worker on Render?
-
-**Usually no.** Text and document jobs now get an **inline** AI draft when they are created. The **worker** (`backend` → `npm run worker`) is only useful if you use **Redis** (`REDIS_URL`) and want **background retries** when the AI call failed the first time.
-
-- **Simplest setup:** omit `REDIS_URL` on the backend → no Redis, no worker, no queue. Ensure `AI_SERVICE_URL` is correct and the AI service is running.
-- **If you set `REDIS_URL`:** add a **Background Worker** on Render with the same repo/env, start command `npm run worker` (from `backend/`), plus a **Redis** instance. Otherwise failed drafts will not be retried automatically.
-
-### Timeouts
-
-Document upload + translation can exceed **30–60 seconds**. Increase the **Render Web Service** HTTP timeout if requests are cut off, and keep the browser tab open while the full-screen “Working on your file…” state is shown.
-
----
-
-## Documentation
-
-- **[IMPLEMENTATION.md](IMPLEMENTATION.md)** — API mapping, gaps (e.g. no JWT refresh, no translation memory in MVP), security notes, and file references.
+- **Run the stack locally** → [DEVELOPERS.md — Local development](DEVELOPERS.md#local-development)
+- **Deploy (e.g. Render)** → [DEVELOPERS.md — Production deployment](DEVELOPERS.md#production-deployment-eg-render)
+- **Environment variables** → [DEVELOPERS.md — Environment variables](DEVELOPERS.md#environment-variables-summary)
 
 ---
 

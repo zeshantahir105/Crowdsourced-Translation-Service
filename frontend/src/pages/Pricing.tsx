@@ -1,28 +1,36 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api";
-
-const freeFeatures = [
-  "Text translation with AI draft (character limits apply)",
-  "Crowdsourced workflow: draft → edit → review → approve",
-  "Glossary (personal)",
-  "Document upload: .txt only, smaller files",
-  "Developer API (limits follow your plan)",
-];
-
-const premiumFeatures = [
-  "Higher text & extraction limits",
-  "Documents: .txt, .docx, .pdf",
-  "Larger file uploads",
-  "Priority-style limits for teams (configurable via env)",
-  "Same workflow, reputation, and API — scaled up",
-];
+import { usePlanLimits } from "../hooks/usePlanLimits";
+import { formatBytes, formatDocExtensions } from "../utils/formatBytes";
 
 export function Pricing() {
   const { user, isPremium, refreshMe } = useAuth();
+  const planLimits = usePlanLimits();
+
+  const freeFeatures = useMemo(
+    () => [
+      `Text translation with AI draft — up to ${planLimits.free.maxTextChars.toLocaleString()} characters per job`,
+      "Crowdsourced workflow: draft → edit → review → approve",
+      "Glossary (personal)",
+      `Document upload: ${formatDocExtensions(planLimits.free.allowedDocExtensions)} only, up to ${formatBytes(planLimits.free.maxDocBytes)} per file; extracted text capped at ${planLimits.free.maxTextChars.toLocaleString()} characters`,
+      "Developer API (limits follow your plan)",
+    ],
+    [planLimits],
+  );
+
+  const premiumFeatures = useMemo(
+    () => [
+      `Higher limits: up to ${planLimits.premium.maxTextChars.toLocaleString()} characters per job (pasted or extracted text)`,
+      `Documents: ${formatDocExtensions(planLimits.premium.allowedDocExtensions)}, up to ${formatBytes(planLimits.premium.maxDocBytes)} per file`,
+      "Same workflow, reputation, glossary, and developer API — scaled for production volume",
+      "Exact numbers come from the server and can be tuned by your host (environment variables)",
+    ],
+    [planLimits],
+  );
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
   const [refreshBusy, setRefreshBusy] = useState(false);
@@ -79,8 +87,8 @@ export function Pricing() {
             <h2 className="text-lg font-bold text-lh-ink">Free</h2>
             <p className="mt-1 text-3xl font-bold text-lh-blue">$0</p>
             <ul className="mt-6 space-y-3">
-              {freeFeatures.map((f) => (
-                <li key={f} className="flex gap-2 text-sm text-lh-ink">
+              {freeFeatures.map((f, i) => (
+                <li key={`free-${i}`} className="flex gap-2 text-sm text-lh-ink">
                   <Check className="size-5 shrink-0 text-green-600" />
                   {f}
                 </li>
@@ -127,8 +135,8 @@ export function Pricing() {
               </p>
             )}
             <ul className="mt-6 space-y-3">
-              {premiumFeatures.map((f) => (
-                <li key={f} className="flex gap-2 text-sm text-lh-ink">
+              {premiumFeatures.map((f, i) => (
+                <li key={`premium-${i}`} className="flex gap-2 text-sm text-lh-ink">
                   <Check className="size-5 shrink-0 text-green-600" />
                   {f}
                 </li>

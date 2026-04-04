@@ -1,34 +1,9 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db.js";
+import { resolveStripeCustomerId } from "../services/stripeCustomer.js";
 
 const router = Router();
-
-/** @param {import("stripe").default} stripe */
-async function resolveStripeCustomerId(stripe, userId, email) {
-  for (const status of ["active", "trialing"]) {
-    const found = await stripe.subscriptions.search({
-      query: `metadata['userId']:'${userId}' AND status:'${status}'`,
-      limit: 1,
-    });
-    const sub = found.data[0];
-    if (sub) {
-      return typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-    }
-  }
-
-  const customers = await stripe.customers.list({ email, limit: 20 });
-  for (const c of customers.data) {
-    const subs = await stripe.subscriptions.list({
-      customer: c.id,
-      limit: 10,
-    });
-    const open = subs.data.find((s) => s.status === "active" || s.status === "trialing");
-    if (open) return c.id;
-  }
-
-  return null;
-}
 
 /**
  * Stripe Checkout — returns session URL when STRIPE_SECRET_KEY + STRIPE_PRICE_PREMIUM are set.
@@ -116,9 +91,16 @@ router.post("/sync-checkout-session", requireAuth, async (req, res) => {
     }
 
     let subscriptionExpiresAt = null;
-    const sub = session.subscription;
-    if (sub && typeof sub === "object" && sub.current_period_end) {
-      subscriptionExpiresAt = new Date(sub.current_period_end * 1000);
+    const subRef = session.subscription;
+    let periodEnd = null;
+    if (subRef && typeof subRef === "object" && subRef.current_period_end) {
+      periodEnd = subRef.current_period_end;
+    } else if (typeof subRef === "string") {
+      const sub = await stripe.subscriptions.retrieve(subRef);
+      if (sub.current_period_end) periodEnd = sub.current_period_end;
+    }
+    if (periodEnd) {
+      subscriptionExpiresAt = new Date(periodEnd * 1000);
     }
 
     await prisma.user.update({

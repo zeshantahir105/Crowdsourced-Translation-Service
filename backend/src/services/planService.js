@@ -22,6 +22,22 @@ export function premiumDocMaxBytes() {
   return Number(process.env.PREMIUM_DOC_MAX_BYTES || 10 * 1024 * 1024);
 }
 
+/** Public snapshot for UI (defaults match env fallbacks in this module). */
+export function getPlanLimitsSnapshot() {
+  return {
+    free: {
+      maxTextChars: Number(process.env.FREE_MAX_TEXT_CHARS || 5000),
+      maxDocBytes: freeDocMaxBytes(),
+      allowedDocExtensions: ["txt"],
+    },
+    premium: {
+      maxTextChars: Number(process.env.PREMIUM_MAX_TEXT_CHARS || 100000),
+      maxDocBytes: premiumDocMaxBytes(),
+      allowedDocExtensions: ["txt", "docx", "pdf"],
+    },
+  };
+}
+
 /** Free: .txt only. Premium: .txt, .docx, .pdf */
 export function allowedDocMimes(user) {
   const base = ["text/plain"];
