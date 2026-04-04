@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp } from "lucide-react";
+import { FileUp, Loader2 } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
-import { apiFormData } from "../api";
+import { apiFormData, isApiError } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { DOMAINS } from "../langs";
@@ -36,19 +36,69 @@ export function Documents() {
       );
       nav(`/requests/${r.request.id}`);
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Upload failed");
+      if (isApiError(err) && err.status === 408) {
+        setMsg(err.message);
+      } else {
+        setMsg(err instanceof Error ? err.message : "Upload failed");
+      }
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="min-h-full bg-lh-surface px-4 py-8 md:px-8">
+    <div className="relative min-h-full bg-lh-surface px-4 py-8 md:px-8">
+      {busy && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 p-6 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="max-w-md rounded-2xl border border-lh-border bg-white p-8 text-center shadow-xl">
+            <Loader2 className="mx-auto size-10 animate-spin text-lh-blue" aria-hidden />
+            <h2 className="mt-4 text-lg font-bold text-lh-navy">Working on your file…</h2>
+            <p className="mt-2 text-sm text-lh-muted leading-relaxed">
+              Extracting text from your document and calling the translation service. This can take{" "}
+              <strong className="text-lh-ink">one to several minutes</strong> for larger PDFs — please keep this tab
+              open.
+            </p>
+            <p className="mt-3 text-xs text-lh-muted">
+              If this hangs past ~15 minutes, your API or hosting timeout may be too low; see deployment docs for
+              Render / production timeouts.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-[720px] space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-lh-ink">Translate files</h1>
           <p className="text-sm text-lh-muted">
-            Upload a document — we extract text, run AI draft, and open a LingoHub workflow (like DeepL files).
+            Upload a .txt, Word, or PDF — we extract the text, translate it with AI, then open the job so you can
+            refine it in the editor.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-lh-border bg-white p-5 text-sm leading-relaxed text-lh-ink shadow-sm">
+          <p className="font-semibold text-lh-navy">What happens after you upload</p>
+          <ol className="mt-2 list-decimal list-inside space-y-2 text-lh-muted">
+            <li>
+              We send you straight to the <strong className="text-lh-ink">job page</strong> for that file (you can
+              always open it again from <Link to="/dashboard" className="font-semibold text-lh-blue underline">Dashboard</Link>
+              ).
+            </li>
+            <li>
+              On that page, <strong className="text-lh-ink">Source</strong> shows the text we pulled from your
+              document.
+            </li>
+            <li>
+              <strong className="text-lh-ink">Human translation (TipTap)</strong> is where the AI translation
+              appears — edit there, then submit your version to the workflow.
+            </li>
+          </ol>
+          <p className="mt-3 text-xs text-lh-muted">
+            Large PDFs may take a few minutes while we extract and translate; keep this tab open until the upload
+            finishes.
           </p>
         </div>
 
@@ -132,7 +182,7 @@ export function Documents() {
           <LoadingButton
             type="submit"
             loading={busy}
-            loadingLabel="Uploading…"
+            loadingLabel="Extracting & translating…"
             disabled={!file}
             className="w-full rounded-lg bg-lh-blue py-3 text-sm font-semibold text-white hover:bg-lh-blue-hover disabled:opacity-50"
           >

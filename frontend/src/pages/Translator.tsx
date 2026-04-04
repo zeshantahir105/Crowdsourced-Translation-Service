@@ -14,6 +14,10 @@ import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { DOMAINS } from "../langs";
+import {
+  isTranslationServiceFailureText,
+  TRANSLATION_SERVICE_HELP,
+} from "../utils/translationMessages";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -66,7 +70,11 @@ export function Translator() {
           domain,
         },
       });
-      setTargetText(r.translated_text);
+      const out = r.translated_text ?? "";
+      setTargetText(out);
+      if (isTranslationServiceFailureText(out)) {
+        setMsg(TRANSLATION_SERVICE_HELP);
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Translation failed");
     } finally {

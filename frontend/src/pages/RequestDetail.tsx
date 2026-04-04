@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { ArrowLeft, BookOpen, Loader2, Send } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { isTranslationServiceFailureText } from "../utils/translationMessages";
 
 type Version = {
   id: string;
@@ -111,30 +112,27 @@ export function RequestDetail() {
     };
   }, [id, user, data?.id, data?.sourceText]);
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: "Write or refine the translation (TipTap editor)…",
-      }),
-    ],
-    content: "<p></p>",
-  });
+  // Recreate editor when job id or seed content changes so AI draft appears after load (TipTap + React).
+  const initialHtml = useMemo(() => {
+    const raw = data?.versions[0]?.text || data?.aiDraft || "";
+    if (!raw.trim()) return "<p></p>";
+    return plainTranslationToHtml(raw);
+  }, [data?.versions[0]?.text, data?.versions[0]?.id, data?.aiDraft]);
 
-  const seedText = data?.versions[0]?.text || data?.aiDraft || "";
-  const seedVersionId = data?.versions[0]?.id;
-
-  useEffect(() => {
-    if (!editor || !data) return;
-    // Prefer latest human version over stored AI draft so a good submission isn't hidden
-    // behind a stale "[AI unavailable]…" placeholder saved at job creation time.
-    const raw = seedText;
-    if (!raw.trim()) {
-      editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
-      return;
-    }
-    editor.commands.setContent(plainTranslationToHtml(raw), false);
-  }, [editor, data?.id, seedVersionId, seedText]);
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        Placeholder.configure({
+          placeholder: "Write or refine the translation (TipTap editor)…",
+        }),
+      ],
+      content: initialHtml,
+      immediatelyRender: false,
+      shouldRerenderOnTransaction: false,
+    },
+    [id, initialHtml],
+  );
 
   async function submitVersion() {
     if (!editor || !id || !user) return;
@@ -232,6 +230,33 @@ export function RequestDetail() {
             )}
           </p>
 
+          {data.inputKind === "DOCUMENT" && (
+            <div className="mt-4 rounded-xl border border-lh-border bg-lh-surface/80 px-4 py-3 text-sm leading-relaxed text-lh-ink shadow-sm">
+              <p className="font-semibold text-lh-navy">Where your file translation appears</p>
+              <ol className="mt-2 list-decimal list-inside space-y-1.5 text-lh-muted">
+                <li>
+                  <span className="font-medium text-lh-ink">Source</span> — text extracted from your PDF, Word, or
+                  .txt file.
+                </li>
+                <li>
+                  <span className="font-medium text-lh-ink">Human translation (TipTap)</span> — the AI translation
+                  loads here so you can edit it, then submit your version.
+                </li>
+                <li>
+                  <span className="font-medium text-lh-ink">AI draft</span> (below) — read-only preview of the same
+                  machine output.
+                </li>
+              </ol>
+              <p className="mt-2 text-xs text-lh-muted">
+                Open this job anytime from{" "}
+                <Link to="/dashboard" className="font-semibold text-lh-blue underline">
+                  Dashboard
+                </Link>
+                .
+              </p>
+            </div>
+          )}
+
           <div className="mt-6">
             <h2 className="text-xs font-bold uppercase tracking-wide text-lh-muted">Source</h2>
             <p className="mt-2 whitespace-pre-wrap rounded-lg bg-lh-surface p-4 text-sm leading-relaxed">
@@ -260,9 +285,15 @@ export function RequestDetail() {
           {data.aiDraft && (
             <div className="mt-4">
               <h2 className="text-xs font-bold uppercase tracking-wide text-lh-muted">AI draft</h2>
-              <p className="mt-2 whitespace-pre-wrap rounded-lg border border-dashed border-lh-border p-4 text-sm">
-                {data.aiDraft}
-              </p>
+              {isTranslationServiceFailureText(data.aiDraft) ? (
+                <div className="mt-2 whitespace-pre-wrap rounded-lg border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
+                  {data.aiDraft}
+                </div>
+              ) : (
+                <p className="mt-2 whitespace-pre-wrap rounded-lg border border-dashed border-lh-border p-4 text-sm">
+                  {data.aiDraft}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -272,7 +303,9 @@ export function RequestDetail() {
             <h2 className="font-semibold text-lh-ink">Human translation (TipTap)</h2>
             <p className="mt-1 text-sm text-lh-muted">
               {user?.id === data.ownerId
-                ? "Your AI draft is loaded here — edit and submit to send the job to review."
+                ? data.inputKind === "DOCUMENT"
+                  ? "The translated text from your file is loaded here — edit it, then submit to send the job to review."
+                  : "Your AI draft is loaded here — edit and submit to send the job to review."
                 : "Submit a version to move the job to review."}
             </p>
             <div className="prose prose-sm mt-4 max-w-none rounded-lg border border-lh-border p-3">

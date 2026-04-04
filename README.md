@@ -17,7 +17,7 @@ For deep implementation notes and PRD traceability, see [`IMPLEMENTATION.md`](IM
 
 ### Translation workflow
 
-- **Text jobs**: create requests, optional **live preview** (`/translate/preview`), and **workflow submit** with AI draft (inline or **optional BullMQ worker** when `REDIS_URL` is set).
+- **Text jobs**: create requests, optional **live preview** (`/translate/preview`), and **workflow submit** with an **inline AI draft** by default. If `REDIS_URL` is set, a **BullMQ worker** (`npm run worker`) only retries jobs whose draft failed (optional).
 - **Documents**: upload supported file types (plan-based MIME/size limits), extracted text becomes the source for the same workflow.
 - **Dashboard**: lists translation requests **you own** (by account).
 - **Tasks inbox**: translators see **TRANSLATE** tasks; reviewers see **REVIEW** tasks after a version is submitted (open/assigned jobs, claim flow).
@@ -105,7 +105,7 @@ docker-compose.yml   # PostgreSQL + Redis for local dev
 2. **Backend**  
    - Copy `backend/.env.example` → `backend/.env` and set `DATABASE_URL`, `JWT_SECRET`, etc.  
    - `cd backend && npm install && npx prisma db push && npm run dev`  
-   - Optional: set `REDIS_URL=redis://localhost:6379` and run `npm run worker` in another terminal for async AI drafts.
+   - Optional: set `REDIS_URL=redis://localhost:6379` and run `npm run worker` in another terminal for **background retries** when the inline AI draft fails (not required for normal operation).
 
 3. **Frontend**  
    - `cd frontend && npm install && npm run dev` (default Vite port, often `5173`).
@@ -115,6 +115,27 @@ docker-compose.yml   # PostgreSQL + Redis for local dev
    - From repo root: `npm run dev:ai` or `uvicorn app.main:app --reload --port 8000` inside `ai-service/`.
 
 5. **Root helper scripts** (from repo root): `npm run dev:api`, `npm run dev:web`, `npm run dev:ai`, `npm run db:push`.
+
+---
+
+## Deploying on Render (and similar)
+
+You need **three pieces** for translations to work in production:
+
+1. **Backend** (Web Service) — Node API, same `npm start` as local. Set `DATABASE_URL`, `JWT_SECRET`, `AI_SERVICE_URL` (your AI service **public** URL, e.g. `https://your-ai.onrender.com`), and matching `AI_SERVICE_SECRET` if the AI service uses `SERVICE_SECRET`.
+2. **AI service** (separate Web Service) — Python/FastAPI from `ai-service/`, start command e.g. `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Set `OPENAI_API_KEY` and/or `DEEPL_API_KEY`, and the same `SERVICE_SECRET` as the backend.
+3. **Frontend** — static or Vite build; set `VITE_API_URL` to your backend origin (no trailing slash).
+
+### Do I need the worker on Render?
+
+**Usually no.** Text and document jobs now get an **inline** AI draft when they are created. The **worker** (`backend` → `npm run worker`) is only useful if you use **Redis** (`REDIS_URL`) and want **background retries** when the AI call failed the first time.
+
+- **Simplest setup:** omit `REDIS_URL` on the backend → no Redis, no worker, no queue. Ensure `AI_SERVICE_URL` is correct and the AI service is running.
+- **If you set `REDIS_URL`:** add a **Background Worker** on Render with the same repo/env, start command `npm run worker` (from `backend/`), plus a **Redis** instance. Otherwise failed drafts will not be retried automatically.
+
+### Timeouts
+
+Document upload + translation can exceed **30–60 seconds**. Increase the **Render Web Service** HTTP timeout if requests are cut off, and keep the browser tab open while the full-screen “Working on your file…” state is shown.
 
 ---
 

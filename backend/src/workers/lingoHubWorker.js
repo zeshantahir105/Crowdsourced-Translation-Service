@@ -5,7 +5,11 @@ import { prisma } from "../db.js";
 import { fetchDraftTranslation } from "../services/aiClient.js";
 import { createBullConnection, isRedisConfigured } from "../queues/redisConnection.js";
 import { JOB_AI_DRAFT, LINGOHUB_QUEUE_NAME } from "../queues/lingoHubQueue.js";
-import { LINGO_EVENTS_CHANNEL, publishLingoEvent } from "../realtime/lingoEvents.js";
+import { publishLingoEvent } from "../realtime/lingoEvents.js";
+import {
+  isTranslationServiceFailureText,
+  translationServiceFailureWithSnippet,
+} from "../constants/translationUserMessages.js";
 
 if (!isRedisConfigured()) {
   console.error("Set REDIS_URL to run the LingoHub worker.");
@@ -28,6 +32,15 @@ const worker = new Worker(
       return;
     }
 
+    const existing = row.aiDraft;
+    if (existing && String(existing).trim().length > 0 && !isTranslationServiceFailureText(existing)) {
+      await publishLingoEvent(publisher, {
+        event: "translation:update",
+        data: { requestId, status: row.status },
+      });
+      return;
+    }
+
     let aiDraft = "";
     try {
       aiDraft = await fetchDraftTranslation({
@@ -38,19 +51,15 @@ const worker = new Worker(
       });
     } catch (e) {
       console.warn(`[worker] AI draft failed for ${requestId}:`, e.message);
-      const existing = row.aiDraft;
-      const keepExisting =
-        existing &&
-        !String(existing).startsWith("[AI unavailable]") &&
-        !String(existing).startsWith("[Preview unavailable]");
-      if (keepExisting) {
+      const prior = row.aiDraft;
+      if (prior && !isTranslationServiceFailureText(prior)) {
         await publishLingoEvent(publisher, {
           event: "translation:update",
           data: { requestId, status: row.status },
         });
         return;
       }
-      aiDraft = `[AI unavailable] ${row.sourceText.slice(0, 200)}…`;
+      aiDraft = translationServiceFailureWithSnippet(row.sourceText, 200);
     }
 
     await prisma.translationRequest.update({

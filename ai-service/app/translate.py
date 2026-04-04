@@ -5,6 +5,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# Above this size, translate in chunks (documents / long pastes).
+CHUNK_CHARS = int(os.getenv("TRANSLATE_CHUNK_CHARS", "7000"))
+MAX_SINGLE_CHARS = int(os.getenv("TRANSLATE_MAX_SINGLE_CHARS", "12000"))
+
 # DeepL free tier: api-free.deepl.com — paid: api.deepl.com
 DEEPL_FREE_BASE = "https://api-free.deepl.com"
 DEEPL_PRO_BASE = "https://api.deepl.com"
@@ -22,8 +26,9 @@ def _normalize_deepl_lang(code: str) -> str:
 
 def _mock_translate(text: str, source: str, target: str, domain: str) -> str:
     return (
-        f"[No translation provider — set OPENAI_API_KEY and/or DEEPL_API_KEY]\n"
-        f"Domain: {domain} | {source} → {target}\n\n{text[:2000]}"
+        "The translation service is not working properly right now. "
+        "Configure OPENAI_API_KEY and/or DEEPL_API_KEY on the AI service to enable translation.\n\n"
+        f"---\nDomain: {domain} | {source} → {target}\n\n{text[:2000]}"
     )
 
 
@@ -95,6 +100,8 @@ def _translate_openai(text: str, source_lang: str, target_lang: str, domain: str
                 f"Domain/context: {domain}\n"
                 f"Translate from {source_lang} to {target_lang}:\n\n{text}"
             )
+        # Long chunks need enough headroom for verbose target languages.
+        approx_out = max(512, int(len(text) * 1.25) + 256)
         resp = client.chat.completions.create(
             model=model,
             messages=[
@@ -102,7 +109,7 @@ def _translate_openai(text: str, source_lang: str, target_lang: str, domain: str
                 {"role": "user", "content": user},
             ],
             temperature=0.3,
-            max_tokens=min(4096, max(256, len(text) // 2 + 256)),
+            max_tokens=min(8192, approx_out),
         )
         out = (resp.choices[0].message.content or "").strip()
         return out or None
@@ -111,10 +118,37 @@ def _translate_openai(text: str, source_lang: str, target_lang: str, domain: str
         return None
 
 
-def translate_with_llm(text: str, source_lang: str, target_lang: str, domain: str) -> str:
+def _split_for_translation(text: str, max_chunk: int) -> list[str]:
+    """Split long text on paragraph/line boundaries when possible."""
+    t = (text or "").strip()
+    if not t:
+        return []
+    if len(t) <= max_chunk:
+        return [t]
+    chunks: list[str] = []
+    i = 0
+    n = len(t)
+    while i < n:
+        end = min(i + max_chunk, n)
+        if end < n:
+            segment = t[i:end]
+            dbl = segment.rfind("\n\n")
+            if dbl > max_chunk // 3:
+                end = i + dbl + 2
+            else:
+                sgl = segment.rfind("\n")
+                if sgl > max_chunk // 3:
+                    end = i + sgl + 1
+        piece = t[i:end].strip()
+        if piece:
+            chunks.append(piece)
+        i = end
+    return chunks
+
+
+def _translate_single_pass(text: str, source_lang: str, target_lang: str, domain: str) -> str:
     """
-    Order: OpenAI (if configured) → DeepL backup (if configured) → mock.
-    Domain/tone hints apply to OpenAI only; DeepL is plain MT.
+    One API-sized segment. Order: OpenAI → DeepL → mock.
     """
     openai_out = _translate_openai(text, source_lang, target_lang, domain)
     if openai_out:
@@ -125,3 +159,27 @@ def translate_with_llm(text: str, source_lang: str, target_lang: str, domain: st
         return deepl_out
 
     return _mock_translate(text, source_lang, target_lang, domain)
+
+
+def translate_with_llm(text: str, source_lang: str, target_lang: str, domain: str) -> str:
+    """
+    Translates arbitrary-length text (chunked for long documents).
+    Order per chunk: OpenAI (if configured) → DeepL backup (if configured) → mock.
+    """
+    text = text or ""
+    if not text.strip():
+        return ""
+
+    if len(text) <= MAX_SINGLE_CHARS:
+        return _translate_single_pass(text, source_lang, target_lang, domain)
+
+    parts = _split_for_translation(text, CHUNK_CHARS)
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return _translate_single_pass(parts[0], source_lang, target_lang, domain)
+
+    out_parts: list[str] = []
+    for p in parts:
+        out_parts.append(_translate_single_pass(p, source_lang, target_lang, domain))
+    return "\n\n".join(out_parts)

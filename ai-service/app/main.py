@@ -23,7 +23,8 @@ app.add_middleware(
 
 
 class DraftBody(BaseModel):
-    text: str = Field(..., min_length=1, max_length=50000)
+    # Must accept premium document extracts (e.g. 100k+); long jobs are chunked in translate.py.
+    text: str = Field(..., min_length=1, max_length=600_000)
     source_lang: str
     target_lang: str
     domain: str = "general"

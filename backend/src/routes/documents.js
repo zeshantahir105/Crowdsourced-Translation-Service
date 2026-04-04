@@ -16,6 +16,10 @@ import {
   maxTextChars,
   premiumDocMaxBytes,
 } from "../services/planService.js";
+import {
+  isTranslationServiceFailureText,
+  translationServiceFailureWithSnippet,
+} from "../constants/translationUserMessages.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadRoot = path.join(__dirname, "../../uploads/documents");
@@ -99,19 +103,21 @@ router.post("/", requireAuth, uploadMiddleware, async (req, res) => {
       });
     }
 
+    // Always build the AI draft inline so the job opens with translated text in TipTap (no worker required).
     let aiDraft = null;
-    if (!isQueueEnabled()) {
-      try {
-        aiDraft = await fetchDraftTranslation({
-          text: trimmed,
-          sourceLang,
-          targetLang,
-          domain: domain || "general",
-        });
-      } catch (e) {
-        console.warn("AI draft failed:", e.message);
-        aiDraft = `[AI unavailable] ${trimmed.slice(0, 200)}…`;
-      }
+    try {
+      aiDraft = await fetchDraftTranslation({
+        text: trimmed,
+        sourceLang,
+        targetLang,
+        domain: domain || "general",
+      });
+    } catch (e) {
+      console.warn("AI draft failed:", e.message);
+      aiDraft = translationServiceFailureWithSnippet(trimmed, 200);
+    }
+    if (typeof aiDraft !== "string" || !aiDraft.trim()) {
+      aiDraft = translationServiceFailureWithSnippet(trimmed, 200);
     }
 
     const request = await prisma.translationRequest.create({
@@ -139,26 +145,12 @@ router.post("/", requireAuth, uploadMiddleware, async (req, res) => {
       },
     });
 
-    if (isQueueEnabled()) {
+    // Background retry only when inline draft failed (e.g. AI service down).
+    if (isQueueEnabled() && aiDraft && isTranslationServiceFailureText(aiDraft)) {
       try {
         await enqueueAiDraft(request.id);
       } catch (e) {
-        console.error("[lingohub] enqueueAiDraft failed, inline AI fallback:", e.message);
-        let fallback = "";
-        try {
-          fallback = await fetchDraftTranslation({
-            text: trimmed,
-            sourceLang,
-            targetLang,
-            domain: domain || "general",
-          });
-        } catch {
-          fallback = `[AI unavailable] ${trimmed.slice(0, 200)}…`;
-        }
-        await prisma.translationRequest.update({
-          where: { id: request.id },
-          data: { aiDraft: fallback },
-        });
+        console.error("[lingohub] enqueueAiDraft failed:", e.message);
       }
     }
 

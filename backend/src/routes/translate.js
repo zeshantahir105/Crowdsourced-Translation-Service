@@ -4,6 +4,10 @@ import { requireAuth } from "../middleware/auth.js";
 import { fetchDraftTranslation } from "../services/aiClient.js";
 import { enqueueAiDraft, isQueueEnabled } from "../queues/lingoHubQueue.js";
 import { maxTextChars } from "../services/planService.js";
+import {
+  isTranslationServiceFailureText,
+  translationServiceFailureWithSnippet,
+} from "../constants/translationUserMessages.js";
 
 const router = Router();
 
@@ -11,10 +15,7 @@ const router = Router();
 function mergeClientNeuralDraft(serverDraft, clientDraft, cap) {
   const c = typeof clientDraft === "string" ? clientDraft.trim().slice(0, cap) : "";
   const isBad = (s) =>
-    s == null ||
-    s === "" ||
-    String(s).startsWith("[AI unavailable]") ||
-    String(s).startsWith("[Preview unavailable]");
+    s == null || typeof s !== "string" || isTranslationServiceFailureText(s);
   if (!isBad(c) && isBad(serverDraft)) return c;
   return serverDraft ?? null;
 }
@@ -44,7 +45,7 @@ router.post("/preview", requireAuth, async (req, res) => {
       });
     } catch (e) {
       console.warn(e);
-      translated = `[Preview unavailable] ${sourceText}`;
+      translated = translationServiceFailureWithSnippet(sourceText, 800);
     }
     res.json({ translated_text: translated });
   } catch (e) {
@@ -69,18 +70,16 @@ router.post("/", requireAuth, async (req, res) => {
     }
 
     let aiDraft = null;
-    if (!isQueueEnabled()) {
-      try {
-        aiDraft = await fetchDraftTranslation({
-          text: sourceText,
-          sourceLang,
-          targetLang,
-          domain: domain || "general",
-        });
-      } catch (e) {
-        console.warn("AI draft failed, saving without draft:", e.message);
-        aiDraft = `[AI unavailable] ${sourceText.slice(0, 200)}…`;
-      }
+    try {
+      aiDraft = await fetchDraftTranslation({
+        text: sourceText,
+        sourceLang,
+        targetLang,
+        domain: domain || "general",
+      });
+    } catch (e) {
+      console.warn("AI draft failed, saving without draft:", e.message);
+      aiDraft = translationServiceFailureWithSnippet(sourceText, 200);
     }
 
     aiDraft = mergeClientNeuralDraft(aiDraft, clientDraft, cap);
@@ -106,27 +105,12 @@ router.post("/", requireAuth, async (req, res) => {
       },
     });
 
-    if (isQueueEnabled()) {
+    // Retry in background only when inline draft failed (same as documents). No worker required for a good draft.
+    if (isQueueEnabled() && isTranslationServiceFailureText(aiDraft)) {
       try {
         await enqueueAiDraft(request.id);
       } catch (e) {
-        console.error("[lingohub] enqueueAiDraft failed, inline AI fallback:", e.message);
-        let fallback = "";
-        try {
-          fallback = await fetchDraftTranslation({
-            text: sourceText,
-            sourceLang,
-            targetLang,
-            domain: domain || "general",
-          });
-        } catch {
-          fallback = `[AI unavailable] ${sourceText.slice(0, 200)}…`;
-        }
-        const merged = mergeClientNeuralDraft(fallback, clientDraft, cap);
-        await prisma.translationRequest.update({
-          where: { id: request.id },
-          data: { aiDraft: merged },
-        });
+        console.error("[lingohub] enqueueAiDraft failed:", e.message);
       }
     }
 

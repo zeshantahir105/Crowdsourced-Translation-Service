@@ -77,11 +77,36 @@ export async function api<T>(
 }
 
 /** Multipart upload — do not set Content-Type (browser adds boundary). */
-export async function apiFormData<T>(path: string, form: FormData): Promise<T> {
+export async function apiFormData<T>(
+  path: string,
+  form: FormData,
+  options?: { timeoutMs?: number }
+): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${base()}${path}`, { method: "POST", headers, body: form });
+  const timeoutMs = options?.timeoutMs ?? 15 * 60 * 1000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(`${base()}${path}`, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(
+        "Request timed out. Large PDFs can take several minutes — try again or use a smaller file.",
+        408
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await res.text();
   let data: unknown = null;
   try {
