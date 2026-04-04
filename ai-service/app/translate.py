@@ -38,19 +38,21 @@ def _translate_deepl(text: str, source_lang: str, target_lang: str) -> str | Non
         base = DEEPL_PRO_BASE if use_pro else DEEPL_FREE_BASE
 
     url = f"{base}/v2/translate"
+    src_raw = (source_lang or "").strip().upper()
     src = _normalize_deepl_lang(source_lang)
     tgt = _normalize_deepl_lang(target_lang)
+
+    data: dict[str, str] = {"text": text, "target_lang": tgt}
+    # Omit source_lang for auto-detect (DeepL infers source when not sent).
+    if src_raw and src_raw != "AUTO":
+        data["source_lang"] = src
 
     try:
         # DeepL deprecated auth_key in body (Nov 2025); use Authorization header only.
         with httpx.Client(timeout=60.0) as client:
             r = client.post(
                 url,
-                data={
-                    "text": text,
-                    "source_lang": src,
-                    "target_lang": tgt,
-                },
+                data=data,
                 headers={"Authorization": f"DeepL-Auth-Key {key}"},
             )
         if r.status_code != 200:
@@ -81,10 +83,18 @@ def _translate_openai(text: str, source_lang: str, target_lang: str, domain: str
             "Preserve tone, register, and cultural nuance. "
             "Output only the translation, no explanations."
         )
-        user = (
-            f"Domain/context: {domain}\n"
-            f"Translate from {source_lang} to {target_lang}:\n\n{text}"
-        )
+        src = (source_lang or "").strip().upper()
+        if src == "AUTO":
+            user = (
+                f"Domain/context: {domain}\n"
+                f"Detect the source language from the text, then translate into {target_lang}. "
+                f"Output only the translation, no explanations or notes.\n\n{text}"
+            )
+        else:
+            user = (
+                f"Domain/context: {domain}\n"
+                f"Translate from {source_lang} to {target_lang}:\n\n{text}"
+            )
         resp = client.chat.completions.create(
             model=model,
             messages=[

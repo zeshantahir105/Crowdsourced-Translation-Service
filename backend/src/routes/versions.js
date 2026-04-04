@@ -10,15 +10,18 @@ router.post("/", requireAuth, async (req, res) => {
     if (!requestId || text == null) {
       return res.status(400).json({ error: "requestId and text required" });
     }
-    if (!["TRANSLATOR", "REVIEWER", "ADMIN"].includes(req.user.role)) {
-      return res.status(403).json({ error: "Translator role required" });
-    }
 
     const request = await prisma.translationRequest.findUnique({
       where: { id: requestId },
       include: { tasks: true },
     });
     if (!request) return res.status(404).json({ error: "Request not found" });
+
+    const isOwner = request.ownerId === req.user.id;
+    const isStaff = ["TRANSLATOR", "REVIEWER", "ADMIN"].includes(req.user.role);
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ error: "You can only submit versions for your own jobs or as staff" });
+    }
 
     const version = await prisma.translationVersion.create({
       data: {

@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { DOMAINS, LANGUAGES } from "../langs";
+import { LanguageSelect } from "../components/LanguageSelect";
+import { DOMAINS } from "../langs";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -98,8 +99,13 @@ export function Translator() {
   }, [user, debounced]);
 
   function swapLangs() {
-    setSourceLang(targetLang);
-    setTargetLang(sourceLang);
+    const nextSource = targetLang;
+    let nextTarget = sourceLang === "AUTO" ? "EN" : sourceLang;
+    if (nextSource === nextTarget) {
+      nextTarget = nextSource === "EN" ? "DE" : "EN";
+    }
+    setSourceLang(nextSource);
+    setTargetLang(nextTarget);
     setSourceText(targetText);
     setTargetText(sourceText);
   }
@@ -195,17 +201,12 @@ export function Translator() {
         )}
 
         <div className="mb-3 flex flex-wrap items-center gap-2 md:gap-3">
-          <select
+          <LanguageSelect
+            variant="source"
             value={sourceLang}
-            onChange={(e) => setSourceLang(e.target.value)}
+            onChange={setSourceLang}
             className="lh-select min-w-[140px] rounded-lg border border-lh-border bg-white py-2 ps-3 pe-11 text-sm font-semibold shadow-sm outline-none ring-lh-blue focus:ring-2"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+          />
 
           <button
             type="button"
@@ -216,17 +217,12 @@ export function Translator() {
             <ArrowLeftRight className="size-5" />
           </button>
 
-          <select
+          <LanguageSelect
+            variant="target"
             value={targetLang}
-            onChange={(e) => setTargetLang(e.target.value)}
+            onChange={setTargetLang}
             className="lh-select min-w-[140px] rounded-lg border border-lh-border bg-white py-2 ps-3 pe-11 text-sm font-semibold shadow-sm outline-none ring-lh-blue focus:ring-2"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2 lg:gap-0 lg:rounded-xl lg:border lg:border-lh-border lg:bg-white lg:shadow-sm">

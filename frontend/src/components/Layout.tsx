@@ -28,8 +28,8 @@ function useSocket() {
     const s: Socket = io(socketUrl, {
       transports: ["websocket"],
     });
-    s.on("translation:update", () => {
-      window.dispatchEvent(new CustomEvent("lh:translation"));
+    s.on("translation:update", (payload: { requestId?: string; status?: string } = {}) => {
+      window.dispatchEvent(new CustomEvent("lh:translation", { detail: payload }));
     });
     return () => {
       s.disconnect();

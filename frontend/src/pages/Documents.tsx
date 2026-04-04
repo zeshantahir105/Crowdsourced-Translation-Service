@@ -4,7 +4,8 @@ import { FileUp } from "lucide-react";
 import { LoadingButton } from "../components/LoadingButton";
 import { apiFormData } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { DOMAINS, LANGUAGES } from "../langs";
+import { LanguageSelect } from "../components/LanguageSelect";
+import { DOMAINS } from "../langs";
 
 export function Documents() {
   const nav = useNavigate();
@@ -30,7 +31,9 @@ export function Documents() {
       const r = await apiFormData<{ request: { id: string } }>("/documents", fd);
       setMsg(`Job created — opening…`);
       setFile(null);
-      window.dispatchEvent(new CustomEvent("lh:translation"));
+      window.dispatchEvent(
+        new CustomEvent("lh:translation", { detail: { requestId: r.request.id } }),
+      );
       nav(`/requests/${r.request.id}`);
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Upload failed");
@@ -91,31 +94,21 @@ export function Documents() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-semibold text-lh-muted">Source language</label>
-              <select
+              <LanguageSelect
+                variant="source"
                 value={sourceLang}
-                onChange={(e) => setSourceLang(e.target.value)}
+                onChange={setSourceLang}
                 className="lh-select mt-1 w-full rounded-lg border border-lh-border bg-white py-2 ps-3 pe-11 text-sm outline-none ring-lh-blue focus:ring-2"
-              >
-                {LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="text-xs font-semibold text-lh-muted">Target language</label>
-              <select
+              <LanguageSelect
+                variant="target"
                 value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value)}
+                onChange={setTargetLang}
                 className="lh-select mt-1 w-full rounded-lg border border-lh-border bg-white py-2 ps-3 pe-11 text-sm outline-none ring-lh-blue focus:ring-2"
-              >
-                {LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 

@@ -36,6 +36,27 @@ type RequestDetail = {
   versions: Version[];
 };
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** TipTap-friendly HTML from extracted / MT plain text (paragraphs + line breaks). */
+function plainTranslationToHtml(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "<p></p>";
+  const blocks = trimmed.split(/\n{2,}/);
+  return blocks
+    .map((block) => {
+      const inner = escapeHtml(block).replace(/\n/g, "<br>");
+      return `<p>${inner || "<br>"}</p>`;
+    })
+    .join("");
+}
+
 export function RequestDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -61,6 +82,16 @@ export function RequestDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const onTranslation = (e: Event) => {
+      const ce = e as CustomEvent<{ requestId?: string }>;
+      const rid = ce.detail?.requestId;
+      if (rid === undefined || rid === id) load();
+    };
+    window.addEventListener("lh:translation", onTranslation);
+    return () => window.removeEventListener("lh:translation", onTranslation);
+  }, [id, load]);
 
   useEffect(() => {
     if (!id || !user || !data?.sourceText?.trim()) {
@@ -90,20 +121,20 @@ export function RequestDetail() {
     content: "<p></p>",
   });
 
+  const seedText = data?.versions[0]?.text || data?.aiDraft || "";
+  const seedVersionId = data?.versions[0]?.id;
+
   useEffect(() => {
     if (!editor || !data) return;
     // Prefer latest human version over stored AI draft so a good submission isn't hidden
     // behind a stale "[AI unavailable]…" placeholder saved at job creation time.
-    const raw = data.versions[0]?.text || data.aiDraft || "";
+    const raw = seedText;
     if (!raw.trim()) {
       editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
       return;
     }
-    editor.commands.setContent({
-      type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: raw }] }],
-    });
-  }, [editor, data]);
+    editor.commands.setContent(plainTranslationToHtml(raw), false);
+  }, [editor, data?.id, seedVersionId, seedText]);
 
   async function submitVersion() {
     if (!editor || !id || !user) return;
@@ -146,7 +177,11 @@ export function RequestDetail() {
     }
   }
 
-  const canTranslate = user && ["TRANSLATOR", "ADMIN"].includes(user.role);
+  const canEditTranslation = Boolean(
+    user &&
+      data &&
+      (user.id === data.ownerId || ["TRANSLATOR", "ADMIN"].includes(user.role)),
+  );
   const canReview = user && ["REVIEWER", "ADMIN"].includes(user.role);
 
   if (!data && !err) {
@@ -232,10 +267,14 @@ export function RequestDetail() {
           )}
         </div>
 
-        {canTranslate && (
+        {canEditTranslation && (
           <div className="rounded-xl border border-lh-border bg-white p-6 shadow-sm">
             <h2 className="font-semibold text-lh-ink">Human translation (TipTap)</h2>
-            <p className="mt-1 text-sm text-lh-muted">Submit a version to move the job to review.</p>
+            <p className="mt-1 text-sm text-lh-muted">
+              {user?.id === data.ownerId
+                ? "Your AI draft is loaded here — edit and submit to send the job to review."
+                : "Submit a version to move the job to review."}
+            </p>
             <div className="prose prose-sm mt-4 max-w-none rounded-lg border border-lh-border p-3">
               {editor && <EditorContent editor={editor} />}
             </div>
